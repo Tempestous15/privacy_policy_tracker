@@ -28,6 +28,11 @@
     <ul class="website-list">
         {% for website in websites %}
         <li>
+            <a href="{% url 'tracker:snapshot_detail' website.id %}">{{ website.name }}</a>
+            <small>
+                Added {{ website.added_at|date:"M d, Y" }}
+                {% if website.privacy_policy_url %} &middot; <a href="{{ website.privacy_policy_url }}" target="_blank">policy source</a>{% endif %}
+            </small>
             <a href="{{ website.url }}" target="_blank">{{ website.name }}</a>
             <small>Added {{ website.added_at|date:"M d, Y" }}</small>
         </li>
