@@ -2,7 +2,10 @@ import hashlib
 import os
 from urllib.parse import urlparse
 
-from django.shortcuts import render, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.shortcuts import render, get_object_or_404, redirect
 
 from .models import Website, PolicySnapshot
 from . import scraper
