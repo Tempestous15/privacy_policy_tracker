@@ -40,6 +40,12 @@ def home(request):
             context["website"] = website
 
     return render(request, "tracker/home.html", context)
+from django.shortcuts import render
+from .models import Website
+
+
+def home(request):
+    return render(request, "tracker/home.html")
 
 
 def mission(request):
