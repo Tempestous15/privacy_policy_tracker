@@ -64,6 +64,46 @@
     .url-input-form button:hover {
         background: var(--accent-hover);
     }
+    .result {
+        width: 100%;
+        max-width: 700px;
+        margin-top: 2.5rem;
+        text-align: left;
+    }
+    .result-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        background: #fafafa;
+    }
+    .result-card.found { border-left: 4px solid #2e7d32; }
+    .result-card.not-found { border-left: 4px solid #c62828; }
+    .result-card h3 { font-size: 1.1rem; color: #1a1a2e; margin-bottom: 0.5rem; }
+    .result-card p { color: #444; margin-bottom: 0.75rem; }
+    .result-card a.policy-link { color: #1a1a2e; word-break: break-all; }
+    .result-preview {
+        background: white;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        padding: 1rem;
+        max-height: 260px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font-size: 0.85rem;
+        color: #555;
+        margin-top: 0.75rem;
+    }
+    .result-actions { margin-top: 1rem; }
+    .result-actions a {
+        color: #1a1a2e;
+        font-weight: 500;
+        font-size: 0.9rem;
+        text-decoration: none;
+        border: 1px solid #1a1a2e;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+    }
+    .result-actions a:hover { background: #1a1a2e; color: white; }
 </style>
 {% endblock %}
 
@@ -71,6 +111,32 @@
 <div class="hero">
     <h2>Track Any Privacy Policy</h2>
     <p>Paste a website URL below to get started.</p>
+    <form class="url-input-form" method="get" action="{% url 'tracker:home' %}">
+        <input type="text" name="url" placeholder="https://example.com" value="{{ submitted_url|default:'' }}" />
+        <button type="submit">Submit</button>
+    </form>
+
+    {% if result %}
+    <div class="result">
+        {% if result.found %}
+        <div class="result-card found">
+            <h3>✅ Privacy policy found</h3>
+            <p>Source: <a class="policy-link" href="{{ result.policy_url }}" target="_blank">{{ result.policy_url }}</a></p>
+            <div class="result-preview">{{ result.text|truncatechars:1200 }}</div>
+            {% if website %}
+            <div class="result-actions">
+                <a href="{% url 'tracker:snapshot_detail' website.id %}">View full snapshot</a>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="result-card not-found">
+            <h3>❌ No privacy policy found</h3>
+            <p>{{ result.error }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
     <form class="url-input-form" method="get" action="#">
         <input type="text" name="url" placeholder="https://example.com" />
         <button type="submit">Submit</button>

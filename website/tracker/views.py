@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from .models import Website
 
 
@@ -33,3 +33,13 @@ def register(request):
 def dashboard(request):
     websites = Website.objects.all()[:20]
     return render(request, "tracker/dashboard.html", {"websites": websites})
+
+
+def snapshot_detail(request, website_id):
+    website = get_object_or_404(Website, pk=website_id)
+    snapshot = website.snapshots.first()
+    return render(
+        request,
+        "tracker/snapshot_detail.html",
+        {"website": website, "snapshot": snapshot},
+    )

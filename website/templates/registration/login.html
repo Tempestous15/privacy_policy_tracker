@@ -106,5 +106,6 @@
         <input type="hidden" name="next" value="{{ next }}" />
         <button type="submit">Sign in</button>
     </form>
+    <p style="text-align:center; margin-top:1.5rem; color:var(--text-muted); font-size:0.9rem;">Don't have an account? <a href="{% url 'tracker:register' %}" style="color:var(--accent); font-weight:600;">Create Account</a></p>
 </div>
 {% endblock %}

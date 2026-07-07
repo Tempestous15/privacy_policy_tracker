@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ website.name }} — Privacy Policy Tracker{% endblock %}
+
+{% block extra_style %}
+<style>
+    .detail { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+    .detail h2 { font-size: 1.6rem; color: #1a1a2e; margin-bottom: 0.3rem; }
+    .detail .meta { color: #888; margin-bottom: 1.5rem; font-size: 0.9rem; }
+    .detail .meta a { color: #666; }
+    .policy-text {
+        background: #fafafa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        white-space: pre-wrap;
+        font-size: 0.9rem;
+        color: #333;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: #999; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail">
+    <h2>{{ website.name }}</h2>
+    <p class="meta">
+        Policy URL: <a href="{{ website.privacy_policy_url }}" target="_blank">{{ website.privacy_policy_url }}</a>
+        {% if snapshot %} &middot; captured {{ snapshot.captured_at|date:"M d, Y H:i" }}{% endif %}
+    </p>
+
+    {% if snapshot %}
+    <div class="policy-text">{{ snapshot.content }}</div>
+    {% else %}
+    <div class="empty-state">
+        <p>No snapshot content available yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
