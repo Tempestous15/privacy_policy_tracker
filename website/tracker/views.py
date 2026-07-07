@@ -85,6 +85,19 @@ def privacy(request):
     return render(request, "tracker/privacy.html")
 
 
+def register(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Account created. You can now sign in.")
+            return redirect("login")
+    else:
+        form = UserCreationForm()
+    return render(request, "registration/register.html", {"form": form})
+
+
+@login_required
 def dashboard(request):
     websites = Website.objects.all()[:20]
     return render(request, "tracker/dashboard.html", {"websites": websites})

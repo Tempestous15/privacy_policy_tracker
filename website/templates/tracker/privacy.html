@@ -5,12 +5,38 @@
 {% block extra_style %}
 <style>
     .privacy-page { max-width: 700px; margin: 0 auto; padding: 3rem 0; }
-    .privacy-page h2 { font-size: 1.8rem; color: #1a1a2e; margin-bottom: 1.5rem; }
-    .privacy-page p { margin-bottom: 1.2rem; color: #444; font-size: 1.05rem; }
-    .privacy-page h3 { font-size: 1.3rem; color: #1a1a2e; margin: 2rem 0 0.8rem; }
-    .privacy-page ul { margin: 0.5rem 0 1.2rem 1.5rem; color: #444; }
-    .privacy-page li { margin-bottom: 0.4rem; }
-    .privacy-page .updated { color: #888; font-size: 0.9rem; margin-bottom: 2rem; }
+    .privacy-page h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--brown-dark);
+        letter-spacing: -0.03em;
+        margin-bottom: 0.5rem;
+    }
+    .privacy-page .updated {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-bottom: 2.5rem;
+    }
+    .privacy-page p {
+        margin-bottom: 1.2rem;
+        color: var(--text);
+        font-size: 1.05rem;
+        line-height: 1.75;
+    }
+    .privacy-page h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--brown-mid);
+        margin: 2.5rem 0 0.8rem;
+    }
+    .privacy-page ul {
+        margin: 0.5rem 0 1.5rem 1.5rem;
+        color: var(--text);
+    }
+    .privacy-page li {
+        margin-bottom: 0.5rem;
+        line-height: 1.65;
+    }
 </style>
 {% endblock %}
 

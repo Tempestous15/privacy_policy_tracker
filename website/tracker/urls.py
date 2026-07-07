@@ -9,4 +9,5 @@ urlpatterns = [
     path("site/<int:website_id>/", views.snapshot_detail, name="snapshot_detail"),
     path("mission/", views.mission, name="mission"),
     path("privacy/", views.privacy, name="privacy"),
+    path("register/", views.register, name="register"),
 ]

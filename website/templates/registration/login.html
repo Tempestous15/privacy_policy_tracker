@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Login — Privacy Policy Tracker{% endblock %}
+
+{% block extra_style %}
+<style>
+    .login-page {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 65vh;
+    }
+    .login-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 2.5rem 2.5rem 2rem;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 4px 16px rgba(74, 55, 40, 0.06);
+    }
+    .login-card h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--brown-dark);
+        letter-spacing: -0.02em;
+        margin-bottom: 0.5rem;
+        text-align: center;
+    }
+    .login-card .subtitle {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .login-card label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--brown-mid);
+        margin-bottom: 0.4rem;
+    }
+    .login-card input[type="text"],
+    .login-card input[type="password"] {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        font-size: 0.95rem;
+        border: 2px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        font-family: inherit;
+        background: var(--surface);
+        color: var(--text);
+        transition: border-color 0.2s;
+        margin-bottom: 1.25rem;
+    }
+    .login-card input:focus {
+        border-color: var(--brown-light);
+    }
+    .login-card button {
+        width: 100%;
+        padding: 0.85rem;
+        font-size: 1rem;
+        font-weight: 600;
+        font-family: inherit;
+        background: var(--brown-dark);
+        color: var(--surface);
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-top: 0.5rem;
+    }
+    .login-card button:hover {
+        background: var(--accent-hover);
+    }
+    .errorlist {
+        color: #b54a3a;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+        list-style: none;
+        padding: 0;
+    }
+    .errorlist li {
+        background: #fdf0ee;
+        border: 1px solid #f0c8c2;
+        border-radius: 8px;
+        padding: 0.6rem 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <form class="login-card" method="post">
+        <h2>Login</h2>
+        <p class="subtitle">Sign in to access your dashboard</p>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <ul class="errorlist">{{ form.non_field_errors }}</ul>
+        {% endif %}
+        <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+        {{ form.username }}
+        <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+        {{ form.password }}
+        <input type="hidden" name="next" value="{{ next }}" />
+        <button type="submit">Sign in</button>
+        <p style="text-align:center; margin-top:1.5rem; color:var(--text-muted); font-size:0.9rem;">Don't have an account? <a href="{% url 'tracker:register' %}" style="color:var(--accent); font-weight:600;">Create Account</a></p>
+    </form>
+</div>
+{% endblock %}

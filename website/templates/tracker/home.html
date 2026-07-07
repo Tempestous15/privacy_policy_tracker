@@ -13,49 +13,56 @@
         text-align: center;
     }
     .hero h2 {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-        color: #1a1a2e;
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: var(--brown-dark);
+        letter-spacing: -0.03em;
+        margin-bottom: 0.75rem;
     }
     .hero p {
         font-size: 1.1rem;
-        color: #666;
-        margin-bottom: 2rem;
-        max-width: 500px;
+        color: var(--text-muted);
+        margin-bottom: 2.5rem;
+        max-width: 460px;
     }
     .url-input-form {
         display: flex;
         width: 100%;
-        max-width: 560px;
-        gap: 0;
+        max-width: 540px;
     }
     .url-input-form input[type="text"] {
         flex: 1;
-        padding: 0.9rem 1.2rem;
+        padding: 1rem 1.25rem;
         font-size: 1rem;
-        border: 2px solid #ddd;
+        border: 2px solid var(--border);
         border-right: none;
-        border-radius: 6px 0 0 6px;
+        border-radius: var(--radius) 0 0 var(--radius);
         outline: none;
         font-family: inherit;
+        background: var(--surface);
+        color: var(--text);
+        transition: border-color 0.2s;
+    }
+    .url-input-form input[type="text"]::placeholder {
+        color: var(--brown-light);
     }
     .url-input-form input[type="text"]:focus {
-        border-color: #1a1a2e;
+        border-color: var(--brown-light);
     }
     .url-input-form button {
-        padding: 0.9rem 1.8rem;
+        padding: 1rem 2rem;
         font-size: 1rem;
-        background: #1a1a2e;
-        color: white;
-        border: 2px solid #1a1a2e;
-        border-radius: 0 6px 6px 0;
+        background: var(--brown-dark);
+        color: var(--surface);
+        border: none;
+        border-radius: 0 var(--radius) var(--radius) 0;
         cursor: pointer;
         font-family: inherit;
-        font-weight: 500;
+        font-weight: 600;
+        transition: background 0.2s;
     }
     .url-input-form button:hover {
-        background: #16213e;
-        border-color: #16213e;
+        background: var(--accent-hover);
     }
     .result {
         width: 100%;

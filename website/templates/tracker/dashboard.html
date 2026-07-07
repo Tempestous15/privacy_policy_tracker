@@ -5,17 +5,67 @@
 {% block extra_style %}
 <style>
     .dashboard { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
-    .dashboard h2 { font-size: 1.8rem; color: #1a1a2e; margin-bottom: 0.5rem; }
-    .dashboard .subtitle { color: #888; margin-bottom: 2rem; }
-    .empty-state { text-align: center; padding: 4rem 2rem; color: #999; }
-    .empty-state p { font-size: 1.1rem; margin-bottom: 1.5rem; }
-    .empty-state a { display: inline-block; background: #1a1a2e; color: white; padding: 0.75rem 2rem; border-radius: 6px; text-decoration: none; font-weight: 500; }
-    .empty-state a:hover { background: #16213e; }
+    .dashboard h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--brown-dark);
+        letter-spacing: -0.03em;
+        margin-bottom: 0.3rem;
+    }
+    .dashboard .subtitle {
+        color: var(--text-muted);
+        margin-bottom: 2.5rem;
+        font-size: 1.05rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-muted);
+    }
+    .empty-state p {
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
+    }
+    .empty-state a {
+        display: inline-block;
+        background: var(--brown-dark);
+        color: var(--surface);
+        padding: 0.85rem 2rem;
+        border-radius: var(--radius);
+        text-decoration: none;
+        font-weight: 600;
+        transition: background 0.2s;
+    }
+    .empty-state a:hover {
+        background: var(--accent-hover);
+    }
     .website-list { list-style: none; }
-    .website-list li { padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.75rem; }
-    .website-list li a { color: #1a1a2e; text-decoration: none; font-weight: 500; }
-    .website-list li a:hover { text-decoration: underline; }
-    .website-list li small { color: #888; display: block; margin-top: 0.3rem; }
+    .website-list li {
+        padding: 1.25rem 1.5rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        margin-bottom: 0.75rem;
+        transition: box-shadow 0.2s;
+    }
+    .website-list li:hover {
+        box-shadow: 0 2px 8px rgba(74, 55, 40, 0.08);
+    }
+    .website-list li a {
+        color: var(--brown-dark);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1.05rem;
+    }
+    .website-list li a:hover {
+        text-decoration: underline;
+    }
+    .website-list li small {
+        color: var(--text-muted);
+        display: block;
+        margin-top: 0.3rem;
+        font-size: 0.85rem;
+    }
 </style>
 {% endblock %}
 
