@@ -20,6 +20,21 @@
         overflow-y: auto;
     }
     .empty-state { text-align: center; padding: 4rem 2rem; color: #999; }
+    .summary-panel { margin-bottom: 2rem; }
+    .mock-banner {
+        background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px;
+        padding: 0.75rem 1rem; font-size: 0.85rem; color: #7a5c00; margin-bottom: 1rem;
+    }
+    .risk-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 999px; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .risk-badge.risk-low { background: #e8f5e9; color: #2e7d32; }
+    .risk-badge.risk-medium { background: #fff8e1; color: #e6a700; }
+    .risk-badge.risk-high { background: #ffebee; color: #c62828; }
+    .risk-badge.risk-unknown { background: #f0f0f0; color: #757575; }
+    .summary-text { margin-bottom: 1rem; }
+    .summary-section { border: 1px solid #eee; border-radius: 6px; padding: 0.6rem 1rem; margin-bottom: 0.6rem; background: #fafafa; }
+    .summary-section summary { cursor: pointer; font-weight: 500; color: #1a1a2e; }
+    .summary-section ul { margin: 0.5rem 0 0 1.2rem; }
+    .summary-section.red-flags { border-color: #ffcdd2; background: #fff5f5; }
 </style>
 {% endblock %}
 
@@ -30,6 +45,12 @@
         Policy URL: <a href="{{ website.privacy_policy_url }}" target="_blank">{{ website.privacy_policy_url }}</a>
         {% if snapshot %} &middot; captured {{ snapshot.captured_at|date:"M d, Y H:i" }}{% endif %}
     </p>
+
+    {% if snapshot.summary %}
+        {% include "tracker/_summary_panel.html" with summary=snapshot.summary mock=False %}
+    {% elif snapshot.summary_error %}
+        <p class="mock-banner">Couldn't generate an AI summary for this snapshot: {{ snapshot.summary_error }}</p>
+    {% endif %}
 
     {% if snapshot %}
     <div class="policy-text">{{ snapshot.content }}</div>

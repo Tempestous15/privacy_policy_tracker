@@ -3,6 +3,18 @@
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load ANTHROPIC_API_KEY (and any other local secrets) from a .env file next
+# to manage.py, if present -- dev convenience only. .env is gitignored; see
+# .env.example. The key itself is read directly from the environment by
+# tracker/summarizer.py, never stored in this settings module or exposed to
+# templates/static/JS.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / ".env")
+except ImportError:
+    pass
+
 SECRET_KEY = "django-insecure-change-me-in-production-xyz123"
 DEBUG = True
 ALLOWED_HOSTS = []
