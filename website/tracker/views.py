@@ -26,7 +26,14 @@ def home(request):
     context["mode"] = mode
 
     if url:
-        result = scraper.get_privacy_policy(url)
+        # If we've scraped this site before, reuse its stored policy URL
+        # instead of rediscovering it (skips the homepage fetch, link scan,
+        # and common-path guessing on every repeat lookup).
+        normalized_url = scraper.normalize_url(url)
+        cached_website = Website.objects.filter(url=normalized_url).first()
+        cached_policy_url = cached_website.privacy_policy_url if cached_website else None
+
+        result = scraper.get_privacy_policy(url, cached_policy_url=cached_policy_url)
         context["submitted_url"] = url
         context["result"] = result
 

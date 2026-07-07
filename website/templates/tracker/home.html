@@ -169,7 +169,7 @@
         {% if result.found %}
         <div class="result-card found">
             <h3>✅ Privacy policy found</h3>
-            <p>Source: <a class="policy-link" href="{{ result.policy_url }}" target="_blank">{{ result.policy_url }}</a></p>
+            <p>Source: <a class="policy-link" href="{{ result.policy_url }}" target="_blank">{{ result.policy_url }}</a>{% if result.from_cache %} <span title="Reused the policy URL saved from a previous scrape of this site, so we skipped rediscovering it.">(cached)</span>{% endif %}</p>
             <div class="result-preview">{{ result.text|truncatechars:1200 }}</div>
             {% if website %}
             <div class="result-actions">
