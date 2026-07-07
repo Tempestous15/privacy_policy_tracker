@@ -1,15 +1,26 @@
 import hashlib
+import os
 from urllib.parse import urlparse
 
 from django.shortcuts import render, get_object_or_404
 
 from .models import Website, PolicySnapshot
 from . import scraper
+from . import summarizer
 
 
 def home(request):
     context = {}
     url = request.GET.get("url", "").strip()
+
+    has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    # Default to mock mode if no key is configured yet, so the form works
+    # out of the box with zero setup/cost. The <select> in home.html always
+    # submits an explicit value once the form is used, so this default only
+    # matters for the very first page load.
+    mode = request.GET.get("mode") or ("real" if has_api_key else "mock")
+    context["has_api_key"] = has_api_key
+    context["mode"] = mode
 
     if url:
         result = scraper.get_privacy_policy(url)
@@ -27,25 +38,43 @@ def home(request):
                     "privacy_policy_url": result["policy_url"],
                 },
             )
+            context["website"] = website
 
             content_hash = hashlib.sha256(result["text"].encode("utf-8")).hexdigest()
             latest = website.snapshots.first()
-            if not latest or latest.hash != content_hash:
-                PolicySnapshot.objects.create(
-                    website=website,
-                    content=result["text"],
-                    hash=content_hash,
-                )
 
-            context["website"] = website
+            if mode == "mock":
+                # Mock runs are never written to PolicySnapshot -- they're
+                # rendered directly here so switching back to "real" mode
+                # later can never accidentally serve stale mock data from
+                # the cache. `latest` (if any) is passed through unchanged
+                # so the "view full snapshot" link still works for a
+                # previously-generated real summary.
+                context["mock_summary"] = summarizer.mock_summarize_policy(result["text"])
+                context["snapshot"] = latest
+            else:
+                if not latest or latest.hash != content_hash:
+                    snapshot = PolicySnapshot(
+                        website=website,
+                        content=result["text"],
+                        hash=content_hash,
+                    )
+                    try:
+                        snapshot.summary = summarizer.summarize_policy(result["text"])
+                        snapshot.summary_error = ""
+                    except summarizer.SummarizerError as e:
+                        # Covers empty text, missing API key/package, API
+                        # failures, and malformed model output -- the scrape
+                        # still succeeded, so we keep the snapshot and just
+                        # record why summarization didn't work.
+                        snapshot.summary = None
+                        snapshot.summary_error = str(e)
+                    snapshot.save()
+                else:
+                    snapshot = latest
+                context["snapshot"] = snapshot
 
     return render(request, "tracker/home.html", context)
-from django.shortcuts import render
-from .models import Website
-
-
-def home(request):
-    return render(request, "tracker/home.html")
 
 
 def mission(request):
