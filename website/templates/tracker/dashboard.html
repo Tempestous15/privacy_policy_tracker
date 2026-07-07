@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Privacy Policy Tracker{% endblock %}
+
+{% block extra_style %}
+<style>
+    .dashboard { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+    .dashboard h2 { font-size: 1.8rem; color: #1a1a2e; margin-bottom: 0.5rem; }
+    .dashboard .subtitle { color: #888; margin-bottom: 2rem; }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: #999; }
+    .empty-state p { font-size: 1.1rem; margin-bottom: 1.5rem; }
+    .empty-state a { display: inline-block; background: #1a1a2e; color: white; padding: 0.75rem 2rem; border-radius: 6px; text-decoration: none; font-weight: 500; }
+    .empty-state a:hover { background: #16213e; }
+    .website-list { list-style: none; }
+    .website-list li { padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 0.75rem; }
+    .website-list li a { color: #1a1a2e; text-decoration: none; font-weight: 500; }
+    .website-list li a:hover { text-decoration: underline; }
+    .website-list li small { color: #888; display: block; margin-top: 0.3rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h2>Dashboard</h2>
+    <p class="subtitle">Your tracked privacy policies</p>
+
+    {% if websites %}
+    <ul class="website-list">
+        {% for website in websites %}
+        <li>
+            <a href="{% url 'tracker:snapshot_detail' website.id %}">{{ website.name }}</a>
+            <small>
+                Added {{ website.added_at|date:"M d, Y" }}
+                {% if website.privacy_policy_url %} &middot; <a href="{{ website.privacy_policy_url }}" target="_blank">policy source</a>{% endif %}
+            </small>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state">
+        <p>No privacy policies tracked yet.</p>
+        <a href="{% url 'tracker:home' %}">Start tracking a policy</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
