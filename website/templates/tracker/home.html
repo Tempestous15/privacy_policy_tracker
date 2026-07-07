@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy Tracker{% endblock %}
+
+{% block extra_style %}
+<style>
+    .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 70vh;
+        text-align: center;
+    }
+    .hero h2 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #1a1a2e;
+    }
+    .hero p {
+        font-size: 1.1rem;
+        color: #666;
+        margin-bottom: 2rem;
+        max-width: 500px;
+    }
+    .url-input-form {
+        display: flex;
+        width: 100%;
+        max-width: 560px;
+        gap: 0;
+    }
+    .url-input-form input[type="text"] {
+        flex: 1;
+        padding: 0.9rem 1.2rem;
+        font-size: 1rem;
+        border: 2px solid #ddd;
+        border-right: none;
+        border-radius: 6px 0 0 6px;
+        outline: none;
+        font-family: inherit;
+    }
+    .url-input-form input[type="text"]:focus {
+        border-color: #1a1a2e;
+    }
+    .url-input-form button {
+        padding: 0.9rem 1.8rem;
+        font-size: 1rem;
+        background: #1a1a2e;
+        color: white;
+        border: 2px solid #1a1a2e;
+        border-radius: 0 6px 6px 0;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 500;
+    }
+    .url-input-form button:hover {
+        background: #16213e;
+        border-color: #16213e;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h2>Track Any Privacy Policy</h2>
+    <p>Paste a website URL below to get started.</p>
+    <form class="url-input-form" method="get" action="#">
+        <input type="text" name="url" placeholder="https://example.com" />
+        <button type="submit">Submit</button>
+    </form>
+</div>
+{% endblock %}
