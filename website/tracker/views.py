@@ -3,10 +3,29 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Website
+from . import scraper
 
 
 def home(request):
-    return render(request, "tracker/home.html")
+    context = {}
+    url = request.GET.get("url", "").strip()
+
+    if url:
+        result = scraper.get_privacy_policy(url)
+        context["submitted_url"] = url
+        context["result"] = result
+
+        if result["found"]:
+            website, created = Website.objects.get_or_create(
+                url=result["input_url"],
+                defaults={
+                    "name": result["input_url"].split("//")[-1].split("/")[0],
+                    "privacy_policy_url": result["policy_url"],
+                },
+            )
+            context["website"] = website
+
+    return render(request, "tracker/home.html", context)
 
 
 def mission(request):

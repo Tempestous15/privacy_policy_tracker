@@ -131,15 +131,11 @@
         </div>
         {% else %}
         <div class="result-card not-found">
-            <h3>❌ No privacy policy found</h3>
+            <h3>❌ No privacy policy found for {{ result.input_url }}</h3>
             <p>{{ result.error }}</p>
         </div>
         {% endif %}
     </div>
     {% endif %}
-    <form class="url-input-form" method="get" action="#">
-        <input type="text" name="url" placeholder="https://example.com" />
-        <button type="submit">Submit</button>
-    </form>
 </div>
 {% endblock %}
