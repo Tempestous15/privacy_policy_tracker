@@ -1,0 +1,30 @@
+name: Deploy Website to S3
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+
+# REQUIRED: This grants the workflow permission to request the OIDC token from GitHub
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Paste the ARN of the IAM role you created in Step 2 here:
+          role-to-assume: arn:aws:iam::131031217080:role/GitHubActions-S3-DeployRole
+          aws-region: us-east-1 
+
+      - name: Sync Website Folder to S3
+        run: aws s3 sync ./website s3://privacy-policy-tracker-website --delete
