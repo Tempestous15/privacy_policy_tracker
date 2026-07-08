@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Privacy Policy Tracker: Site Scanner",
+  "version": "0.1.0",
+  "description": "Click Scan to find the current site's privacy policy and get a plain-English summary from your own Privacy Policy Tracker backend. Only scans when you click the button -- no automatic or continuous browsing monitoring.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Scan this site for its privacy policy"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ]
+}
