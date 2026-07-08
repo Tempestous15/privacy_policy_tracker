@@ -8,10 +8,17 @@ privacy_scraper.py script so it can be imported directly by Django views
 Given a website URL, find and extract that site's privacy policy text.
 """
 
+import ipaddress
+import socket
 from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
+
+
+class UnsafeURLError(Exception):
+    """Raised when a URL fails SSRF safety checks (bad scheme, private or
+    metadata-service address, oversized response, redirect loop)."""
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -41,12 +48,62 @@ COMMON_PATHS = [
     "/privacy.html",
 ]
 TIMEOUT = 10
+MAX_REDIRECTS = 5
+MAX_RESPONSE_BYTES = 2 * 1024 * 1024  # 2 MB is far beyond any real policy page
+
+
+def _validate_url(url):
+    """Reject URLs that could reach internal services (SSRF).
+
+    The server fetches user-supplied URLs, so without this an attacker could
+    point it at the EC2 metadata service (169.254.169.254 -> IAM credentials),
+    localhost-only services, or anything else on the VPC's private network.
+    Every address the hostname resolves to must be public.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise UnsafeURLError(f"Unsupported URL scheme: {parsed.scheme or '(none)'}")
+    host = parsed.hostname
+    if not host:
+        raise UnsafeURLError("URL has no hostname.")
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or 0, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise UnsafeURLError(f"Could not resolve host: {host}")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if not ip.is_global or ip.is_multicast:
+            raise UnsafeURLError(f"URL resolves to a non-public address: {host}")
+
+
+def _fetch(url, timeout=TIMEOUT):
+    """requests.get with SSRF checks re-applied on every redirect hop and a
+    cap on response size. Auto-following redirects would skip validation of
+    intermediate targets, so hops are followed manually."""
+    for _ in range(MAX_REDIRECTS + 1):
+        _validate_url(url)
+        resp = requests.get(
+            url, headers=HEADERS, timeout=timeout, allow_redirects=False, stream=True
+        )
+        if resp.is_redirect or resp.is_permanent_redirect:
+            location = resp.headers.get("Location")
+            resp.close()
+            if not location:
+                raise UnsafeURLError("Redirect response with no Location header.")
+            url = urljoin(url, location)
+            continue
+        resp.raise_for_status()
+        body = resp.raw.read(MAX_RESPONSE_BYTES + 1, decode_content=True)
+        resp.close()
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise UnsafeURLError("Response exceeded the size limit.")
+        return resp, body.decode(resp.encoding or "utf-8", errors="replace")
+    raise UnsafeURLError("Too many redirects.")
 
 
 def get_soup(url, timeout=TIMEOUT):
-    resp = requests.get(url, headers=HEADERS, timeout=timeout)
-    resp.raise_for_status()
-    return BeautifulSoup(resp.text, "html.parser")
+    _, text = _fetch(url, timeout=timeout)
+    return BeautifulSoup(text, "html.parser")
 
 
 def normalize_url(url):
@@ -85,10 +142,10 @@ def try_common_paths(base_url):
     for path in COMMON_PATHS:
         candidate = root + path
         try:
-            r = requests.get(candidate, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
-            if r.status_code == 200:
+            resp, _ = _fetch(candidate)
+            if resp.status_code == 200:
                 return candidate
-        except requests.RequestException:
+        except (requests.RequestException, UnsafeURLError):
             continue
     return None
 
@@ -136,7 +193,7 @@ def get_privacy_policy(url, cached_policy_url=None):
     if cached_policy_url:
         try:
             cached_soup = get_soup(cached_policy_url)
-        except requests.RequestException:
+        except (requests.RequestException, UnsafeURLError):
             cached_soup = None
 
         if cached_soup is not None:
@@ -149,6 +206,9 @@ def get_privacy_policy(url, cached_policy_url=None):
 
     try:
         soup = get_soup(url)
+    except UnsafeURLError as e:
+        result["error"] = f"URL rejected: {e}"
+        return result
     except requests.RequestException as e:
         result["error"] = f"Failed to fetch input URL: {e}"
         return result
@@ -163,7 +223,7 @@ def get_privacy_policy(url, cached_policy_url=None):
 
     try:
         policy_soup = get_soup(link)
-    except requests.RequestException as e:
+    except (requests.RequestException, UnsafeURLError) as e:
         result["policy_url"] = link
         result["error"] = f"Found link but failed to fetch it: {e}"
         return result

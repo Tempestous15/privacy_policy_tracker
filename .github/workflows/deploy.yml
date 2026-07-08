@@ -1,4 +1,9 @@
-name: Deploy Website to S3
+name: Deploy Website to EC2
+
+# Keyless deploys: the workflow exchanges GitHub's OIDC token for short-lived
+# AWS credentials (no permanent keys stored in GitHub), then runs the deploy
+# on the instance through SSM Run Command (no SSH keys, port 22 can stay
+# closed). See DEPLOY.md for the one-time IAM setup.
 
 on:
   push:
@@ -6,25 +11,78 @@ on:
       - main
     paths:
       - 'website/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy.yml'
 
-# REQUIRED: This grants the workflow permission to request the OIDC token from GitHub
+# Required for the workflow to request the OIDC token from GitHub.
 permissions:
   id-token: write
   contents: read
+
+env:
+  AWS_REGION: us-east-1
+  # Role ARNs aren't secrets -- the trust policy (locked to this repo's main
+  # branch) is what gates who can assume it.
+  ROLE_ARN: arn:aws:iam::131031217080:role/GitHubActions-EC2-DeployRole
+  INSTANCE_NAME_TAG: privacy-tracker
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials via OIDC
+      - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # Paste the ARN of the IAM role you created in Step 2 here:
-          role-to-assume: arn:aws:iam::131031217080:role/GitHubActions-S3-DeployRole
-          aws-region: us-east-1 
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Sync Website Folder to S3
-        run: aws s3 sync ./website s3://privacy-policy-tracker-website --delete
+      - name: Deploy via SSM Run Command
+        run: |
+          set -euo pipefail
+
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${INSTANCE_NAME_TAG}" \
+                      "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "No running instance tagged Name=${INSTANCE_NAME_TAG}" >&2
+            exit 1
+          fi
+          echo "Deploying ${GITHUB_SHA} to ${INSTANCE_ID}"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Deploy ${GITHUB_SHA}" \
+            --parameters '{"commands":[
+              "runuser -u ubuntu -- git -C /opt/privacy-tracker/privacy_policy_tracker fetch origin main",
+              "runuser -u ubuntu -- git -C /opt/privacy-tracker/privacy_policy_tracker reset --hard origin/main",
+              "bash /opt/privacy-tracker/privacy_policy_tracker/deploy/deploy.sh"
+            ]}' \
+            --query 'Command.CommandId' --output text)
+
+          # Poll until the command finishes (up to 5 minutes; the built-in
+          # `aws ssm wait` gives up after ~100s, too short for pip installs).
+          STATUS=InProgress
+          for _ in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text)
+            case "$STATUS" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 5
+          done
+
+          echo "--- deploy output ---"
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          if [ "$STATUS" != "Success" ]; then
+            echo "--- deploy errors ---" >&2
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+              --query StandardErrorContent --output text >&2
+            echo "Deploy finished with status: $STATUS" >&2
+            exit 1
+          fi

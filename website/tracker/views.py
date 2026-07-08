@@ -5,11 +5,36 @@ from urllib.parse import urlparse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
+from django.core.cache import cache
 from django.shortcuts import render, get_object_or_404, redirect
 
 from .models import Website, PolicySnapshot
 from . import scraper
 from . import summarizer
+
+# Lookups per client IP per hour. Each lookup can trigger outbound scraping
+# and (in real mode) a paid Anthropic API call, so unauthenticated use has to
+# be bounded or a single visitor could run up costs / hammer other sites.
+LOOKUPS_PER_HOUR = 15
+
+
+def _client_ip(request):
+    # Behind nginx, REMOTE_ADDR is always 127.0.0.1; nginx puts the real
+    # client address at the front of X-Forwarded-For.
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def _rate_limited(request):
+    key = f"lookup-throttle:{_client_ip(request)}"
+    try:
+        count = cache.incr(key)
+    except ValueError:  # key doesn't exist yet
+        cache.set(key, 1, 3600)
+        count = 1
+    return count > LOOKUPS_PER_HOUR
 
 
 def home(request):
@@ -24,6 +49,16 @@ def home(request):
     mode = request.GET.get("mode") or ("real" if has_api_key else "mock")
     context["has_api_key"] = has_api_key
     context["mode"] = mode
+
+    if url and _rate_limited(request):
+        context["submitted_url"] = url
+        context["result"] = {
+            "input_url": url,
+            "found": False,
+            "error": "Too many lookups from your address in the past hour. "
+                     "Please wait a while and try again.",
+        }
+        return render(request, "tracker/home.html", context)
 
     if url:
         # If we've scraped this site before, reuse its stored policy URL
