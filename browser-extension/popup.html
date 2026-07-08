@@ -80,6 +80,14 @@
   #siteInfo p { margin: 0.15rem 0; word-break: break-word; }
   #siteInfo .label { color: var(--text-muted); }
   #noPolicyText { color: #a8402e; }
+  #discoveryNote { margin-top: 0.3rem; font-size: 0.75rem; color: var(--text-muted); }
+  .confidence-tag {
+    display: inline-block; padding: 0.05rem 0.45rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 600; margin-left: 0.3rem; vertical-align: middle;
+  }
+  .confidence-high { background: #e8f5e9; color: #2e7d32; }
+  .confidence-medium { background: #fff8e1; color: #b8860b; }
+  .confidence-low { background: #f0f0f0; color: #757575; }
 
   #summaryBox {
     margin-top: 0.8rem;
@@ -141,6 +149,7 @@
         <a id="policyLink" href="#" target="_blank" rel="noopener noreferrer"></a>
         <span id="noPolicyText" hidden>We couldn't automatically find a privacy policy on this page.</span>
       </p>
+      <p id="discoveryNote" hidden></p>
     </section>
 
     <section id="summaryBox" hidden>

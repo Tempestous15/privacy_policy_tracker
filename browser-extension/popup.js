@@ -16,6 +16,7 @@ const els = {
   domainText: document.getElementById("domainText"),
   policyLink: document.getElementById("policyLink"),
   noPolicyText: document.getElementById("noPolicyText"),
+  discoveryNote: document.getElementById("discoveryNote"),
   summaryBox: document.getElementById("summaryBox"),
   mockBanner: document.getElementById("mockBanner"),
   riskBadge: document.getElementById("riskBadge"),
@@ -115,15 +116,26 @@ function finishWithError(message) {
 
 function renderSiteInfo(scan) {
   els.domainText.textContent = scan.domain || "(unknown)";
+  hide(els.discoveryNote);
 
   if (scan.policyUrl) {
+    // A high-confidence match on the current page -- trusted as-is.
     els.policyLink.href = scan.policyUrl;
     els.policyLink.textContent = scan.policyUrl;
     show(els.policyLink);
     hide(els.noPolicyText);
+  } else if (scan.pageCandidateUrl) {
+    // Found *something* on this page, but not confidently enough to trust
+    // outright -- show it as a weak guess while the backend double-checks.
+    hide(els.policyLink);
+    show(els.noPolicyText);
+    els.noPolicyText.textContent = "No confident match on this page -- asking the server to check further…";
+    els.discoveryNote.textContent = "Weak guess from this page: " + scan.pageCandidateUrl;
+    show(els.discoveryNote);
   } else {
     hide(els.policyLink);
     show(els.noPolicyText);
+    els.noPolicyText.textContent = "We couldn't automatically find a privacy policy on this page.";
   }
 
   show(els.siteInfo);
@@ -135,12 +147,26 @@ function renderSummary(summary) {
   }
 
   // If the server discovered the policy URL itself (client-side scan found
-  // nothing), reflect that back into the site-info panel.
+  // nothing confident enough), reflect that back into the site-info panel,
+  // including how it was found and how confident the pipeline is.
   if (summary.policy_url && !els.policyLink.href.endsWith(summary.policy_url)) {
     els.policyLink.href = summary.policy_url;
     els.policyLink.textContent = summary.policy_url;
     show(els.policyLink);
     hide(els.noPolicyText);
+  }
+
+  if (summary.discovery_method) {
+    const confidence = (summary.discovery_confidence || "low").toLowerCase();
+    els.discoveryNote.innerHTML = "";
+    const label = document.createElement("span");
+    label.textContent = "Found via " + humanizeDiscoveryMethod(summary.discovery_method) + ".";
+    els.discoveryNote.appendChild(label);
+    const tag = document.createElement("span");
+    tag.className = "confidence-tag confidence-" + (["high", "medium", "low"].includes(confidence) ? confidence : "low");
+    tag.textContent = confidence + " confidence";
+    els.discoveryNote.appendChild(tag);
+    show(els.discoveryNote);
   }
 
   const risk = (summary.risk_level || "unknown").toLowerCase();
@@ -160,6 +186,20 @@ function renderSummary(summary) {
   els.redFlagsDetails.open = Array.isArray(summary.red_flags) && summary.red_flags.length > 0;
 
   show(els.summaryBox);
+}
+
+function humanizeDiscoveryMethod(method) {
+  const labels = {
+    cached: "a previously saved link",
+    homepage_scan: "a link on the homepage",
+    footer_scan: "a footer link",
+    common_path: "guessing a common URL path",
+    sitemap: "the site's sitemap",
+    internal_search: "the site's own search",
+    structured_metadata: "page metadata",
+    llm_ranked: "AI-assisted ranking of candidate links",
+  };
+  return labels[method] || method;
 }
 
 function riskLabel(risk) {

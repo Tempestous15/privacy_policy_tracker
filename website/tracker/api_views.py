@@ -17,11 +17,12 @@ Currently exposes exactly one endpoint:
                    already produces -- data_collected, data_usage,
                    third_party_sharing, retention, user_rights, red_flags,
                    plain_english_summary, risk_level, user_takeaways --
-                   plus two additive fields: "policy_url" (the URL that was
-                   actually summarized, useful when the client didn't find
-                   one itself and this view discovered it server-side) and
-                   "mock" (true if no real API call was made).
-        Response (4xx/5xx): {"error": str, "domain"?: str}
+                   plus additive fields: "policy_url" (the URL that was
+                   actually summarized), "mock" (true if no real API call
+                   was made), and, when the client didn't supply a policy_url
+                   and tracker.policy_discovery had to find one itself:
+                   "discovery_method", "discovery_confidence", "discovery_reasoning".
+        Response (4xx/5xx): {"error": str, "domain"?: str, "attempted_methods"?: [...], "possible_candidates"?: [...]}
 
 No API keys are ever sent to or exposed by this endpoint. ANTHROPIC_API_KEY
 stays server-side and is read only by tracker.summarizer, exactly as it
@@ -44,6 +45,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from . import policy_discovery
 from . import scraper
 from . import summarizer
 from .models import PolicySnapshot, Website
@@ -99,6 +101,7 @@ def summarize_policy_api(request):
 
     resolved_policy_url = client_policy_url
     policy_text = None
+    discovery_meta = None  # only set when tracker.policy_discovery had to find the URL itself
 
     if resolved_policy_url:
         # The extension already found a link on the page -- fetch it directly
@@ -113,23 +116,39 @@ def summarize_policy_api(request):
         policy_text = scraper.extract_text(policy_soup)
     else:
         # The extension couldn't find a policy link on the page itself --
-        # fall back to the same link-scan + common-paths discovery (with the
-        # same cached-URL shortcut) the website's own tracking page uses.
+        # run the full multi-stage discovery pipeline (homepage + footer
+        # scan, common-path guessing, sitemap search, structured metadata,
+        # and LLM ranking as a last resort). See policy_discovery.py.
         cached_policy_url = cached_website.privacy_policy_url if cached_website else None
-        discovery = scraper.get_privacy_policy(site_url, cached_policy_url=cached_policy_url)
+        discovery, policy_text = policy_discovery.find_privacy_policy_with_text(
+            site_url, mode="auto", cached_policy_url=cached_policy_url
+        )
         if not discovery["found"]:
             return _cors(JsonResponse(
                 {
-                    "error": (
-                        "Couldn't automatically find a privacy policy for this site. "
-                        + (discovery["error"] or "")
-                    ).strip(),
-                    "domain": domain or discovery.get("input_url"),
+                    "error": discovery.get("reason") or "Couldn't automatically find a privacy policy for this site.",
+                    "domain": domain or (urlparse(normalized_site_url).netloc if normalized_site_url else None),
+                    "attempted_methods": discovery.get("attempted_methods", []),
+                    "possible_candidates": discovery.get("possible_candidates", []),
                 },
                 status=404,
             ))
         resolved_policy_url = discovery["policy_url"]
-        policy_text = discovery["text"]
+        discovery_meta = {
+            "discovery_method": discovery["discovery_method"],
+            "discovery_confidence": discovery["confidence"],
+            "discovery_reasoning": discovery["reasoning"],
+        }
+        if not policy_text:
+            # Rare: the winning candidate's text wasn't cached (e.g. it came
+            # from the cached_policy_url fast path) -- fetch it directly.
+            try:
+                policy_text = scraper.extract_text(scraper.get_soup(resolved_policy_url))
+            except Exception as e:
+                return _cors(JsonResponse(
+                    {"error": f"Found a candidate policy page but couldn't fetch it: {e}", "domain": domain or None},
+                    status=502,
+                ))
 
     if not policy_text or not policy_text.strip():
         return _cors(JsonResponse(
@@ -153,6 +172,8 @@ def summarize_policy_api(request):
 
     summary["policy_url"] = resolved_policy_url
     summary["mock"] = mode == "mock"
+    if discovery_meta:
+        summary.update(discovery_meta)
     return _cors(JsonResponse(summary))
 
 

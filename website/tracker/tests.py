@@ -139,15 +139,26 @@ class SummarizePolicyApiTests(TestCase):
         self.assertEqual(snapshot.summary["risk_level"], "low")
 
     # -- server-side fallback discovery (client found nothing) -----------
+    #
+    # tracker.policy_discovery.find_privacy_policy_with_text() itself has
+    # its own dedicated test suite (test_policy_discovery.py) covering the
+    # 7-stage pipeline in detail with mocked network calls. Here we only
+    # need to confirm api_views.py wires it up correctly.
 
-    @patch("tracker.api_views.scraper.get_privacy_policy")
+    @patch("tracker.api_views.policy_discovery.find_privacy_policy_with_text")
     def test_falls_back_to_discovery_when_no_client_policy_url(self, mock_discover):
-        mock_discover.return_value = {
-            "input_url": "https://example.com", "found": True,
-            "policy_url": "https://example.com/legal/privacy",
-            "text": "We collect your email. We do not sell your data.",
-            "error": None, "from_cache": False,
-        }
+        mock_discover.return_value = (
+            {
+                "found": True,
+                "policy_url": "https://example.com/legal/privacy",
+                "discovery_method": "common_path",
+                "confidence": "high",
+                "alternative_candidates": [],
+                "reasoning": "Guessed path resolved successfully.",
+                "next_action": "summarize",
+            },
+            "We collect your email. We do not sell your data.",
+        )
 
         response = self.post({
             "site_url": "https://example.com",
@@ -159,14 +170,21 @@ class SummarizePolicyApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["policy_url"], "https://example.com/legal/privacy")
+        self.assertEqual(body["discovery_method"], "common_path")
+        self.assertEqual(body["discovery_confidence"], "high")
         mock_discover.assert_called_once()
 
-    @patch("tracker.api_views.scraper.get_privacy_policy")
+    @patch("tracker.api_views.policy_discovery.find_privacy_policy_with_text")
     def test_returns_404_when_discovery_finds_nothing(self, mock_discover):
-        mock_discover.return_value = {
-            "input_url": "https://example.com", "found": False, "policy_url": None,
-            "text": None, "error": "No privacy policy link found.", "from_cache": False,
-        }
+        mock_discover.return_value = (
+            {
+                "found": False,
+                "reason": "Couldn't find a page that reliably looks like this site's privacy policy.",
+                "attempted_methods": ["homepage_scan", "common_path_guessing"],
+                "possible_candidates": [],
+            },
+            None,
+        )
 
         response = self.post({
             "site_url": "https://example.com",
@@ -178,22 +196,30 @@ class SummarizePolicyApiTests(TestCase):
         body = response.json()
         self.assertIn("error", body)
         self.assertEqual(body.get("domain"), "example.com")
+        self.assertIn("homepage_scan", body.get("attempted_methods", []))
 
     def test_uses_cached_website_policy_url_when_client_sends_none(self):
         Website.objects.create(
             name="example.com", url="https://example.com",
             privacy_policy_url="https://example.com/cached-privacy",
         )
-        with patch("tracker.api_views.scraper.get_privacy_policy") as mock_discover:
-            mock_discover.return_value = {
-                "input_url": "https://example.com", "found": True,
-                "policy_url": "https://example.com/cached-privacy",
-                "text": "Some policy text.", "error": None, "from_cache": True,
-            }
+        with patch("tracker.api_views.policy_discovery.find_privacy_policy_with_text") as mock_discover:
+            mock_discover.return_value = (
+                {
+                    "found": True,
+                    "policy_url": "https://example.com/cached-privacy",
+                    "discovery_method": "cached",
+                    "confidence": "high",
+                    "alternative_candidates": [],
+                    "reasoning": "Previously discovered privacy policy URL for this site.",
+                    "next_action": "summarize",
+                },
+                "Some policy text.",
+            )
             response = self.post({"site_url": "https://example.com", "mode": "mock"})
 
         self.assertEqual(response.status_code, 200)
-        # confirm the cached URL was passed through to scraper.get_privacy_policy
+        # confirm the cached URL was passed through to find_privacy_policy_with_text
         _, kwargs = mock_discover.call_args
         self.assertEqual(kwargs.get("cached_policy_url"), "https://example.com/cached-privacy")
 

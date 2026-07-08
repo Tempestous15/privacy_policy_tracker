@@ -6,7 +6,12 @@
  *   2. inject content.js (+ policyFinder.js) to scan its DOM for a privacy
  *      policy link -- only when asked, never on a schedule or on page load
  *   3. call the backend's /api/summarize-policy/ endpoint with whatever was
- *      found (or just the domain, if nothing was)
+ *      found. A high-confidence page-level match (exact "Privacy Policy"
+ *      link, or an href containing "/privacy") is sent straight through;
+ *      anything weaker (or nothing at all) is sent as domain-only, letting
+ *      the backend's full multi-stage discovery pipeline
+ *      (tracker/policy_discovery.py) take over instead of trusting a shaky
+ *      client-side guess.
  *   4. relay results/errors back to the popup
  *
  * This file holds no persistent state and starts no timers/alarms. The only
@@ -107,6 +112,7 @@ async function handleScanPage() {
       siteUrl: tab.url,
       domain: safeHostname(tab.url) || tab.url,
       policyUrl: null,
+      pageConfidence: "low",
       bestText: null,
       candidates: [],
       restricted: true,
@@ -120,14 +126,25 @@ async function handleScanPage() {
   } catch (err) {
     // The DOM scan itself failed (e.g. a page that blocks script injection,
     // or simply timed out) -- we still know the domain from the tab URL, so
-    // surface that and let the backend's own discovery fallback try.
-    scan = { bestUrl: null, bestText: null, candidates: [], scanError: String(err.message || err) };
+    // surface that and let the backend's own discovery pipeline try.
+    scan = { bestUrl: null, bestText: null, confidence: "low", candidates: [], scanError: String(err.message || err) };
   }
+
+  // Only trust the page-level scan as "the" policy URL when it's a strong,
+  // unambiguous match (an exact "Privacy Policy" link or an href containing
+  // "/privacy"). Anything weaker gets handed to the backend's full
+  // multi-stage pipeline instead -- server-side, it can check the footer,
+  // guess common paths, read the sitemap, and validate page content in ways
+  // a single-page client-side scan can't. This avoids confidently
+  // forwarding a low-quality guess as if it were certain.
+  const trustClientMatch = scan.confidence === "high";
 
   return {
     siteUrl: tab.url,
     domain: new URL(tab.url).hostname,
-    policyUrl: scan.bestUrl || null,
+    policyUrl: trustClientMatch ? scan.bestUrl : null,
+    pageConfidence: scan.confidence || "low",
+    pageCandidateUrl: scan.bestUrl || null, // shown in the UI even if not trusted enough to send yet
     bestText: scan.bestText || null,
     candidates: scan.candidates || [],
     scanError: scan.scanError || null,
