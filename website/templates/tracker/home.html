@@ -104,6 +104,23 @@
         padding: 0.5rem 1rem;
     }
     .result-actions a:hover { background: #1a1a2e; color: white; }
+    .mode-select { margin-top: 0.75rem; font-size: 0.9rem; color: #666; }
+    .mode-select select { font-family: inherit; padding: 0.3rem 0.5rem; border-radius: 4px; border: 1px solid #ccc; }
+    .summary-panel { margin-top: 1.5rem; border-top: 1px solid #e0e0e0; padding-top: 1.5rem; }
+    .mock-banner {
+        background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px;
+        padding: 0.75rem 1rem; font-size: 0.85rem; color: #7a5c00; margin-bottom: 1rem;
+    }
+    .risk-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 999px; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .risk-badge.risk-low { background: #e8f5e9; color: #2e7d32; }
+    .risk-badge.risk-medium { background: #fff8e1; color: #e6a700; }
+    .risk-badge.risk-high { background: #ffebee; color: #c62828; }
+    .risk-badge.risk-unknown { background: #f0f0f0; color: #757575; }
+    .summary-text { margin-bottom: 1rem; }
+    .summary-section { border: 1px solid #eee; border-radius: 6px; padding: 0.6rem 1rem; margin-bottom: 0.6rem; background: white; }
+    .summary-section summary { cursor: pointer; font-weight: 500; color: #1a1a2e; }
+    .summary-section ul { margin: 0.5rem 0 0 1.2rem; }
+    .summary-section.red-flags { border-color: #ffcdd2; background: #fff5f5; }
 </style>
 {% endblock %}
 
@@ -115,18 +132,57 @@
         <input type="text" name="url" placeholder="https://example.com" value="{{ submitted_url|default:'' }}" />
         <button type="submit">Submit</button>
     </form>
+    <p class="mode-select">
+        <label for="mode-select-input">Summary mode:</label>
+        <select id="mode-select-input" name="mode" form="mode-form">
+            <option value="mock" {% if mode == "mock" %}selected{% endif %}>Mock summary (free, no API calls)</option>
+            <option value="real" {% if mode == "real" %}selected{% endif %}>Real AI summary (uses Anthropic API{% if not has_api_key %} -- requires ANTHROPIC_API_KEY{% endif %})</option>
+        </select>
+    </p>
+    {# Hidden form so the mode <select> above submits alongside the URL input's GET request. #}
+    <form id="mode-form" method="get" action="{% url 'tracker:home' %}" style="display:none;">
+        <input type="hidden" name="url" value="{{ submitted_url|default:'' }}" />
+    </form>
+    <script>
+        // Keep the visible URL field's value in sync onto the hidden mode-form,
+        // and re-submit via the mode-form (which carries `mode`) whenever the
+        // mode dropdown changes or the visible form is submitted.
+        (function () {
+            var urlInput = document.querySelector('.url-input-form input[name="url"]');
+            var modeForm = document.getElementById('mode-form');
+            var modeHiddenUrl = modeForm.querySelector('input[name="url"]');
+            var modeSelect = document.getElementById('mode-select-input');
+            document.querySelectorAll('.url-input-form').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    modeHiddenUrl.value = urlInput.value;
+                });
+            });
+            modeSelect.addEventListener('change', function () {
+                modeHiddenUrl.value = urlInput.value;
+                modeForm.submit();
+            });
+        })();
+    </script>
 
     {% if result %}
     <div class="result">
         {% if result.found %}
         <div class="result-card found">
             <h3>✅ Privacy policy found</h3>
-            <p>Source: <a class="policy-link" href="{{ result.policy_url }}" target="_blank">{{ result.policy_url }}</a></p>
+            <p>Source: <a class="policy-link" href="{{ result.policy_url }}" target="_blank">{{ result.policy_url }}</a>{% if result.from_cache %} <span title="Reused the policy URL saved from a previous scrape of this site, so we skipped rediscovering it.">(cached)</span>{% endif %}</p>
             <div class="result-preview">{{ result.text|truncatechars:1200 }}</div>
             {% if website %}
             <div class="result-actions">
                 <a href="{% url 'tracker:snapshot_detail' website.id %}">View full snapshot</a>
             </div>
+            {% endif %}
+
+            {% if mock_summary %}
+                {% include "tracker/_summary_panel.html" with summary=mock_summary mock=True %}
+            {% elif snapshot.summary %}
+                {% include "tracker/_summary_panel.html" with summary=snapshot.summary mock=False %}
+            {% elif snapshot.summary_error %}
+            <p class="mock-banner">Couldn't generate an AI summary for this snapshot: {{ snapshot.summary_error }}</p>
             {% endif %}
         </div>
         {% else %}

@@ -20,6 +20,16 @@ class PolicySnapshot(models.Model):
     content = models.TextField()
     hash = models.CharField(max_length=64, db_index=True)
 
+    # Structured LLM summary from tracker.summarizer.summarize_policy(), or
+    # None if summarization hasn't run / failed. summary_error holds the
+    # failure message in the latter case. Both are populated in views.home().
+    #
+    # NOTE for later: a future multi-site dashboard view or a browser-extension
+    # API endpoint can read `summary` directly off the latest snapshot for a
+    # site instead of recomputing it.
+    summary = models.JSONField(null=True, blank=True, default=None)
+    summary_error = models.TextField(blank=True, default="")
+
     class Meta:
         ordering = ["-captured_at"]
 

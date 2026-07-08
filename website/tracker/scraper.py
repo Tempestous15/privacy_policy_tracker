@@ -102,7 +102,7 @@ def extract_text(soup):
     return "\n".join(lines)
 
 
-def get_privacy_policy(url):
+def get_privacy_policy(url, cached_policy_url=None):
     """
     Given a site URL, return a dict:
         {
@@ -111,10 +111,41 @@ def get_privacy_policy(url):
             "policy_url": str | None,
             "text": str | None,
             "error": str | None,
+            "from_cache": bool,
         }
+
+    If `cached_policy_url` is supplied (e.g. a previously discovered policy
+    URL for this site, stored on Website.privacy_policy_url), it is fetched
+    directly first. This skips both the homepage fetch/link-scan and the
+    common-path guessing fallback -- the expensive parts of discovery -- on
+    every repeat visit to a site we've already scraped once.
+
+    If the cached URL no longer resolves (site restructured, page removed,
+    etc.) discovery runs from scratch, exactly as if no cache had been given.
     """
     url = normalize_url(url)
-    result = {"input_url": url, "found": False, "policy_url": None, "text": None, "error": None}
+    result = {
+        "input_url": url,
+        "found": False,
+        "policy_url": None,
+        "text": None,
+        "error": None,
+        "from_cache": False,
+    }
+
+    if cached_policy_url:
+        try:
+            cached_soup = get_soup(cached_policy_url)
+        except requests.RequestException:
+            cached_soup = None
+
+        if cached_soup is not None:
+            result["found"] = True
+            result["policy_url"] = cached_policy_url
+            result["text"] = extract_text(cached_soup)
+            result["from_cache"] = True
+            return result
+        # Cache miss -- fall through to full discovery below.
 
     try:
         soup = get_soup(url)
