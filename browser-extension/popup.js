@@ -119,19 +119,19 @@ function renderSiteInfo(scan) {
   hide(els.discoveryNote);
 
   if (scan.policyUrl) {
-    // A high-confidence match on the current page -- trusted as-is.
+    // Show whatever the page-level scan found as the match, regardless of
+    // confidence tier -- no "no confident match" hedge state. If confidence
+    // is below "high", label it so the user knows it's a same-page guess
+    // rather than a validated result.
     els.policyLink.href = scan.policyUrl;
     els.policyLink.textContent = scan.policyUrl;
     show(els.policyLink);
     hide(els.noPolicyText);
-  } else if (scan.pageCandidateUrl) {
-    // Found *something* on this page, but not confidently enough to trust
-    // outright -- show it as a weak guess while the backend double-checks.
-    hide(els.policyLink);
-    show(els.noPolicyText);
-    els.noPolicyText.textContent = "No confident match on this page -- asking the server to check further…";
-    els.discoveryNote.textContent = "Weak guess from this page: " + scan.pageCandidateUrl;
-    show(els.discoveryNote);
+
+    if (scan.pageConfidence && scan.pageConfidence !== "high") {
+      els.discoveryNote.textContent = "Found on this page (" + scan.pageConfidence + " confidence) -- confirming with the server…";
+      show(els.discoveryNote);
+    }
   } else {
     hide(els.policyLink);
     show(els.noPolicyText);
