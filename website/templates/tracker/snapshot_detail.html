@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ website.name }} — Privacy Policy Tracker{% endblock %}
 
@@ -35,6 +36,19 @@
     .summary-section summary { cursor: pointer; font-weight: 500; color: #1a1a2e; }
     .summary-section ul { margin: 0.5rem 0 0 1.2rem; }
     .summary-section.red-flags { border-color: #ffcdd2; background: #fff5f5; }
+    .muted { color: #888; }
+    .ai-summary-block { margin-top: 1.5rem; border-top: 1px solid #e0e0e0; padding-top: 1.25rem; }
+    .ai-summary-btn {
+        background: white; color: #1a1a2e;
+        border: 1px solid #1a1a2e; border-radius: 6px;
+        padding: 0.5rem 1.1rem; font-size: 0.9rem; font-weight: 500; cursor: pointer;
+        font-family: inherit; transition: background 0.2s, color 0.2s;
+    }
+    .ai-summary-btn:hover:not(:disabled) { background: #1a1a2e; color: white; }
+    .ai-summary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-summary-result:not(:empty) { margin-top: 1rem; }
+    .ai-summary-hint { font-size: 0.8rem; margin-top: 0.4rem; }
+    .ai-summary-hint a { color: #1a1a2e; }
 </style>
 {% endblock %}
 
@@ -46,18 +60,18 @@
         {% if snapshot %} &middot; captured {{ snapshot.captured_at|date:"M d, Y H:i" }}{% endif %}
     </p>
 
-    {% if snapshot.summary %}
-        {% include "tracker/_summary_panel.html" with summary=snapshot.summary mock=False %}
-    {% elif snapshot.summary_error %}
-        <p class="mock-banner">Couldn't generate an AI summary for this snapshot: {{ snapshot.summary_error }}</p>
-    {% endif %}
-
     {% if snapshot %}
-    <div class="policy-text">{{ snapshot.content }}</div>
+        {% include "tracker/_summary_panel.html" with text=snapshot.content website_id=website.id has_api_key=has_api_key %}
+        <div class="policy-text">{{ snapshot.content }}</div>
     {% else %}
     <div class="empty-state">
         <p>No snapshot content available yet.</p>
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'tracker/js/redflags-engine.js' %}"></script>
+<script src="{% static 'tracker/js/panel.js' %}"></script>
 {% endblock %}

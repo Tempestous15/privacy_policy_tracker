@@ -1,82 +1,43 @@
 {% comment %}
 _summary_panel.html
 
-Renders a structured summary dict matching tracker.summarizer's JSON schema:
-data_collected, data_usage, third_party_sharing, retention, user_rights,
-red_flags, plain_english_summary, risk_level, user_takeaways.
+Two independent pieces:
+  1. The classifier result -- primary, always-on, non-LLM. Runs client-side
+     via redflags-engine.js (see classifier/README.md) against `text`, the
+     raw policy text passed in by the including template. No server call,
+     no API key needed.
+  2. The AI plain-English summary -- optional, on-demand. The button below
+     POSTs to tracker:ai_summary and renders the result via panel.js; it
+     never runs automatically, and is disabled entirely when `has_api_key`
+     is false. The API key itself is managed in one place, the dashboard
+     (see dashboard.html + tracker:manage_api_key) -- not entered here.
 
-Included from home.html (mock-mode results, which aren't persisted) and
-snapshot_detail.html (real, persisted PolicySnapshot.summary).
-
-NOTE for later: this partial only surfaces the highlights. A future
-multi-site dashboard page or a browser-extension popup can read the exact
-same summary dict (straight off PolicySnapshot.summary) to render richer
-breakdowns without changing how the data is produced or stored.
+Included from home.html (live lookup results) and snapshot_detail.html
+(saved snapshots). Both must pass `text` (raw policy text), `website_id`,
+and `has_api_key`.
 {% endcomment %}
 <div class="summary-panel">
-    {% if mock %}
-    <p class="mock-banner">
-        ⚠️ Mock summary — no API call was made. This is placeholder data for testing.
-        Set <code>ANTHROPIC_API_KEY</code> and switch to "Real AI summary" above for actual analysis.
-    </p>
-    {% endif %}
+    <div class="classifier-panel">
+        <p class="summary-text muted">Scanning policy text…</p>
+    </div>
+    {{ text|json_script:"policy-text-data" }}
 
-    {% if summary.risk_level == "low" %}
-    <span class="risk-badge risk-low">🟢 Low risk</span>
-    {% elif summary.risk_level == "medium" %}
-    <span class="risk-badge risk-medium">🟡 Medium risk</span>
-    {% elif summary.risk_level == "high" %}
-    <span class="risk-badge risk-high">🔴 High risk</span>
-    {% else %}
-    <span class="risk-badge risk-unknown">⚪ Risk unknown</span>
-    {% endif %}
-
-    <p class="summary-text">{{ summary.plain_english_summary }}</p>
-
-    <details class="summary-section">
-        <summary>📋 Data collected</summary>
-        <ul>
-            {% for item in summary.data_collected %}<li>{{ item }}</li>{% empty %}<li><em>Not addressed.</em></li>{% endfor %}
-        </ul>
-    </details>
-    <details class="summary-section">
-        <summary>⚙️ How data is used</summary>
-        <ul>
-            {% for item in summary.data_usage %}<li>{{ item }}</li>{% empty %}<li><em>Not addressed.</em></li>{% endfor %}
-        </ul>
-    </details>
-    <details class="summary-section">
-        <summary>🔁 Third-party sharing</summary>
-        <ul>
-            {% for item in summary.third_party_sharing %}<li>{{ item }}</li>{% empty %}<li><em>Not addressed.</em></li>{% endfor %}
-        </ul>
-    </details>
-    <details class="summary-section">
-        <summary>🗂️ Retention</summary>
-        <ul>
-            {% for item in summary.retention %}<li>{{ item }}</li>{% empty %}<li><em>Not addressed.</em></li>{% endfor %}
-        </ul>
-    </details>
-    <details class="summary-section">
-        <summary>🙋 Your rights</summary>
-        <ul>
-            {% for item in summary.user_rights %}<li>{{ item }}</li>{% empty %}<li><em>Not addressed.</em></li>{% endfor %}
-        </ul>
-    </details>
-
-    {% if summary.red_flags %}
-    <details class="summary-section red-flags" open>
-        <summary>🚩 Red flags</summary>
-        <ul>
-            {% for item in summary.red_flags %}<li>{{ item }}</li>{% endfor %}
-        </ul>
-    </details>
-    {% endif %}
-
-    {% if summary.user_takeaways %}
-    <h4>✅ Takeaways</h4>
-    <ul>
-        {% for item in summary.user_takeaways %}<li>{{ item }}</li>{% endfor %}
-    </ul>
-    {% endif %}
+    <div class="ai-summary-block">
+        <button
+            type="button"
+            class="ai-summary-btn"
+            data-website-id="{{ website_id }}"
+            {% if not has_api_key %}disabled title="Add your Anthropic API key on the Dashboard to enable AI summaries"{% endif %}
+        >Get AI plain-English summary</button>
+        {% if not has_api_key %}
+        <p class="muted ai-summary-hint">
+            {% if user.is_authenticated %}
+            <a href="{% url 'tracker:dashboard' %}">Add your API key</a> on the Dashboard to enable this.
+            {% else %}
+            <a href="{% url 'login' %}">Log in</a> and add your API key on the Dashboard to enable this.
+            {% endif %}
+        </p>
+        {% endif %}
+        <div class="ai-summary-result"></div>
+    </div>
 </div>

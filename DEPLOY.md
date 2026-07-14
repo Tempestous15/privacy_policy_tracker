@@ -18,18 +18,46 @@ Browser ── HTTP(S) ──> nginx (port 80/443, on EC2)
                                                  └──> Anthropic API
 ```
 
+## Account hygiene (before touching EC2)
+
+- **Never use the AWS root user day-to-day.** Create/use an IAM user (or IAM
+  Identity Center user) with only the permissions needed for this project,
+  and turn on MFA for it. If root doesn't already have MFA enabled, enable
+  that too — root can bypass every other control in this guide.
+- **Don't create long-lived IAM access keys if you can avoid it.** Use AWS
+  IAM Identity Center (SSO) for your own CLI access (temporary credentials),
+  or the AWS Console. The GitHub Actions deploy role setup later in this
+  doc is already keyless (OIDC) by design — the instance itself never holds
+  long-lived AWS credentials either, only the temporary ones SSM issues it.
+
 ## One-time EC2 setup
 
 1. **Launch an instance** — Ubuntu 24.04, t3.micro is fine to start.
    - Security group: allow inbound TCP 80/443 (anywhere). **Port 22 is not
      needed** — deploys and shell access both go through AWS SSM, so leave
-     SSH closed entirely.
+     SSH closed entirely. Don't add an outbound-restricted rule set unless
+     you're prepared to allowlist the Anthropic API and every site the
+     scraper might fetch — default "allow all outbound" is fine here.
    - Tag the instance `Name=privacy-tracker` (the deploy workflow finds it
      by this tag).
    - Attach an IAM instance profile that has the AWS-managed policy
-     `AmazonSSMManagedInstanceCore` (IAM → Roles → Create role → trusted
-     entity "EC2" → attach that policy). The SSM agent is preinstalled on
-     Ubuntu AMIs, so nothing to install.
+     `AmazonSSMManagedInstanceCore` **and nothing else**. The SSM agent is
+     preinstalled on Ubuntu AMIs, so nothing to install. Don't attach
+     broader policies "just in case" — if the app is ever compromised
+     (e.g. a bug lets an attacker reach it), the instance role is the
+     ceiling on what they can do to your AWS account.
+   - **Enforce IMDSv2** (Advanced details → Metadata version → "V2 only",
+     or `--metadata-options "HttpTokens=required,HttpEndpointEnabled=enabled"`
+     on the CLI/`RunInstances` call). This app fetches arbitrary
+     user-supplied URLs; the code already blocks requests to
+     `169.254.169.254` (the metadata service) at the application layer, but
+     IMDSv2 requiring a session token via `PUT` before any `GET` is a second,
+     independent layer that would still block a metadata-service hit even if
+     the app-level check were ever bypassed by a bug or a new code path.
+   - **Encrypt the root EBS volume** (checkbox in the launch wizard, or set
+     it as the account default: EC2 → Settings → "Always encrypt new EBS
+     volumes"). Protects the SQLite database and the `.env` secrets file at
+     rest if the volume/snapshot is ever exposed.
 
    For an interactive shell instead of SSH, use Session Manager:
 
@@ -38,10 +66,13 @@ Browser ── HTTP(S) ──> nginx (port 80/443, on EC2)
    # or the "Connect" button → "Session Manager" tab in the EC2 console
    ```
 
-2. **Install system packages:**
+2. **Install system packages, and turn on automatic security patching**
+   (there's no SSH access to manually patch on a schedule, so unattended
+   upgrades matter more here than on a box you log into regularly):
 
    ```bash
-   sudo apt update && sudo apt install -y python3-venv nginx git
+   sudo apt update && sudo apt install -y python3-venv nginx git unattended-upgrades
+   sudo dpkg-reconfigure -plow unattended-upgrades   # choose "Yes"
    ```
 
 3. **Clone the repo and create the venv:**

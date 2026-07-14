@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% comment %}
+    Accessing {{ csrf_token }} here (rather than only via {% csrf_token %} inside a
+    <form>) ensures the token/cookie exist on every page, including the home page,
+    which has no other POST form -- panel.js's AJAX "Get AI summary" button needs it.
+    {% endcomment %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Privacy Policy Tracker{% endblock %}</title>
     <style>
         :root {
@@ -106,5 +112,6 @@
             Privacy Policy Tracker &copy; {% now "Y" %}
         </div>
     </footer>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

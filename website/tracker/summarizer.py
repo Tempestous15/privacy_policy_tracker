@@ -148,13 +148,17 @@ Privacy policy text:
 # Public API
 # ---------------------------------------------------------------------------
 
-def summarize_policy(policy_text: str, model: str = DEFAULT_MODEL) -> dict[str, Any]:
+def summarize_policy(policy_text: str, model: str = DEFAULT_MODEL, api_key: str | None = None) -> dict[str, Any]:
     """
     Turn cleaned privacy-policy text into a structured JSON summary.
 
     Args:
         policy_text: Cleaned policy text, e.g. from tracker.scraper.get_privacy_policy().
         model: Anthropic model id to use.
+        api_key: Anthropic API key to use for this call. If omitted, falls
+            back to the ANTHROPIC_API_KEY environment variable (this keeps
+            the module usable standalone, e.g. from a script, without a
+            caller needing to pass anything).
 
     Returns:
         A dict matching exactly:
@@ -185,7 +189,7 @@ def summarize_policy(policy_text: str, model: str = DEFAULT_MODEL) -> dict[str, 
     if not policy_text or not policy_text.strip():
         raise EmptyPolicyTextError("policy_text is empty; nothing to summarize.")
 
-    client = _get_client()
+    client = _get_client(api_key)
     prompt = SUMMARY_PROMPT_TEMPLATE.format(policy_text=policy_text.strip()[:MAX_POLICY_CHARS])
     raw_text = _call_model(client, prompt, model)
     return _parse_and_validate(raw_text)
@@ -229,18 +233,18 @@ def mock_summarize_policy(policy_text: str) -> dict[str, Any]:
 # Internals
 # ---------------------------------------------------------------------------
 
-def _get_client():
+def _get_client(api_key: str | None = None):
     if anthropic is None:
         raise SummarizerConfigError(
             "The 'anthropic' package isn't installed. Run: pip install anthropic"
         )
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise SummarizerConfigError(
-            "ANTHROPIC_API_KEY environment variable is not set. Keep it server-side "
-            "only (e.g. a local .env file that is gitignored) -- never send it to "
-            "the browser/frontend."
+            "No Anthropic API key available -- pass one in (e.g. a user's own "
+            "saved key) or set ANTHROPIC_API_KEY server-side. Never send a key "
+            "to the browser/frontend."
         )
     return anthropic.Anthropic(api_key=api_key)
 

@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Privacy Policy Tracker",
+  "version": "1.0.0",
+  "description": "Check and save the privacy policy summary for the site you're on, synced with your Privacy Policy Tracker account.",
+  "permissions": ["activeTab", "storage"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Privacy Policy Tracker"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "privacy-policy-tracker@example.invalid",
+      "strict_min_version": "109.0"
+    }
+  }
+}

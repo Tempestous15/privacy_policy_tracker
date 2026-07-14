@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Dashboard — Privacy Policy Tracker{% endblock %}
 
@@ -66,33 +67,219 @@
         margin-top: 0.3rem;
         font-size: 0.85rem;
     }
+    .token-panel {
+        margin-top: 3rem;
+        padding: 1.5rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+    }
+    .token-panel h3 {
+        font-size: 1.15rem;
+        color: var(--brown-dark);
+        margin-bottom: 0.5rem;
+    }
+    .token-panel p {
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+    .token-panel code {
+        display: block;
+        padding: 0.75rem 1rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        word-break: break-all;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    .token-panel button {
+        background: var(--brown-dark);
+        color: var(--surface);
+        border: none;
+        padding: 0.6rem 1.4rem;
+        border-radius: var(--radius);
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .token-panel button:hover {
+        background: var(--accent-hover);
+    }
+    .add-site-form {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+    }
+    .add-site-form input[type="text"] {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        border: 2px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+        font-family: inherit;
+        background: var(--surface);
+        color: var(--text);
+    }
+    .add-site-form button {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+        background: var(--brown-dark);
+        color: var(--surface);
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 600;
+    }
+    .add-site-form button:hover { background: var(--accent-hover); }
+    .messages { list-style: none; margin-bottom: 1.5rem; }
+    .messages li { padding: 0.75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .messages li.success { background: #e8f5e9; color: #2e7d32; }
+    .messages li.error { background: #ffebee; color: #c62828; }
+    .website-list li .summary-panel { margin-top: 0.85rem; }
+    .muted { color: var(--text-muted); }
+    .risk-badge { display: inline-block; padding: 0.25rem 0.7rem; border-radius: 999px; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.5rem; }
+    .risk-badge.risk-low { background: #e8f5e9; color: #2e7d32; }
+    .risk-badge.risk-medium { background: #fff8e1; color: #e6a700; }
+    .risk-badge.risk-high { background: #ffebee; color: #c62828; }
+    .risk-badge.risk-unknown { background: #f0f0f0; color: #757575; }
+    .summary-text { font-size: 0.88rem; margin-bottom: 0.5rem; }
+    .summary-section { border: 1px solid #eee; border-radius: 6px; padding: 0.5rem 0.85rem; margin-bottom: 0.5rem; background: var(--surface); font-size: 0.85rem; }
+    .summary-section summary { cursor: pointer; font-weight: 500; color: var(--brown-dark); }
+    .summary-section ul { margin: 0.5rem 0 0 1.2rem; }
+    .summary-section.red-flags { border-color: #ffcdd2; background: #fff5f5; }
+    .mock-banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 0.6rem 0.85rem; font-size: 0.8rem; color: #7a5c00; margin-bottom: 0.75rem; }
+    .ai-summary-block { margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+    .ai-summary-btn {
+        background: var(--surface); color: var(--brown-dark);
+        border: 1px solid var(--brown-dark); border-radius: 6px;
+        padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 500; cursor: pointer;
+        font-family: inherit; transition: background 0.2s, color 0.2s;
+    }
+    .ai-summary-btn:hover:not(:disabled) { background: var(--brown-dark); color: var(--surface); }
+    .ai-summary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-summary-hint { font-size: 0.78rem; margin-top: 0.4rem; }
+    .ai-summary-result:not(:empty) { margin-top: 0.75rem; }
+    .ai-key-status { font-size: 0.85rem; color: #2e7d32; margin-bottom: 0.75rem; }
+    .token-panel input[type="password"] {
+        padding: 0.55rem 0.75rem;
+        margin-right: 0.75rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 0.9rem;
+        background: var(--surface);
+        color: var(--text);
+        min-width: 260px;
+    }
+    .token-panel button { margin-right: 0.5rem; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard">
     <h2>Dashboard</h2>
-    <p class="subtitle">Your tracked privacy policies</p>
+    <p class="subtitle">Your saved privacy policies</p>
 
-    {% if websites %}
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form class="add-site-form" method="post" action="{% url 'tracker:dashboard' %}">
+        {% csrf_token %}
+        <input type="text" name="url" placeholder="https://example.com" required>
+        <button type="submit">Add site</button>
+    </form>
+
+    {% if saved_sites_data %}
     <ul class="website-list">
-        {% for website in websites %}
+        {% for item in saved_sites_data %}
         <li>
-            <a href="{% url 'tracker:snapshot_detail' website.id %}">{{ website.name }}</a>
+            <a href="{% url 'tracker:snapshot_detail' item.saved_site.website.id %}">{{ item.saved_site.website.name }}</a>
             <small>
-                Added {{ website.added_at|date:"M d, Y" }}
-                {% if website.privacy_policy_url %} &middot; <a href="{{ website.privacy_policy_url }}" target="_blank">policy source</a>{% endif %}
+                Saved {{ item.saved_site.saved_at|date:"M d, Y" }}
+                {% if item.saved_site.website.privacy_policy_url %} &middot; <a href="{{ item.saved_site.website.privacy_policy_url }}" target="_blank">policy source</a>{% endif %}
             </small>
-            <a href="{{ website.url }}" target="_blank">{{ website.name }}</a>
-            <small>Added {{ website.added_at|date:"M d, Y" }}</small>
+
+            <div class="summary-panel">
+                <div class="classifier-panel" data-content-id="{{ item.script_id }}">
+                    <p class="summary-text muted">Scanning policy text…</p>
+                </div>
+                {{ item.content|json_script:item.script_id }}
+
+                <div class="ai-summary-block">
+                    <button
+                        type="button"
+                        class="ai-summary-btn"
+                        data-website-id="{{ item.saved_site.website.id }}"
+                        {% if not has_api_key %}disabled title="Add your Anthropic API key below to enable AI summaries"{% endif %}
+                    >Get AI plain-English summary</button>
+                    {% if not has_api_key %}
+                    <p class="muted ai-summary-hint">Add your API key below to enable this.</p>
+                    {% endif %}
+                    <div class="ai-summary-result"></div>
+                </div>
+            </div>
         </li>
         {% endfor %}
     </ul>
     {% else %}
     <div class="empty-state">
-        <p>No privacy policies tracked yet.</p>
+        <p>No privacy policies saved yet.</p>
         <a href="{% url 'tracker:home' %}">Start tracking a policy</a>
     </div>
     {% endif %}
+
+    <div class="token-panel">
+        <h3>Browser extension access</h3>
+        {% if new_token %}
+        <p>Copy this token into the extension now — it won't be shown again.</p>
+        <code>{{ new_token }}</code>
+        {% elif has_token %}
+        <p>The extension is authorized on this account.</p>
+        {% else %}
+        <p>Generate a token to log the browser extension into this account.</p>
+        {% endif %}
+        <form method="post" action="{% url 'tracker:manage_token' %}">
+            {% csrf_token %}
+            <button type="submit" name="action" value="generate">
+                {% if has_token %}Regenerate token{% else %}Generate token{% endif %}
+            </button>
+            {% if has_token %}
+            <button type="submit" name="action" value="revoke">Revoke extension access</button>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="token-panel">
+        <h3>AI summary API key</h3>
+        <p>
+            Add your own Anthropic API key so "Get AI summary" produces real AI summaries instead of
+            the mock demo. It's only ever used for your own requests and is never shared.
+        </p>
+        {% if has_saved_api_key %}
+        <p class="ai-key-status">✓ API key saved</p>
+        {% endif %}
+        <form method="post" action="{% url 'tracker:manage_api_key' %}">
+            {% csrf_token %}
+            <input type="password" name="api_key" placeholder="sk-ant-..." autocomplete="off">
+            <button type="submit" name="action" value="save">{% if has_saved_api_key %}Replace key{% else %}Save key{% endif %}</button>
+            {% if has_saved_api_key %}
+            <button type="submit" name="action" value="clear">Remove saved key</button>
+            {% endif %}
+        </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'tracker/js/redflags-engine.js' %}"></script>
+<script src="{% static 'tracker/js/panel.js' %}"></script>
 {% endblock %}

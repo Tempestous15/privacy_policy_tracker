@@ -74,11 +74,28 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
     "tracker",
 ]
 
+# Backs the browser-extension API: extension requests carry a per-user token
+# (issued via /api/login/) instead of the session cookie the web UI uses.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Lets the browser extension's popup/background page call /api/ cross-
+    # origin. Placed early so it can short-circuit extension preflight
+    # OPTIONS requests before session/CSRF/auth middleware see them.
+    "tracker.middleware.ExtensionCorsMiddleware",
     # WhiteNoise serves collected static files directly from gunicorn, so no
     # separate static-file hosting is needed on EC2 (nginx just proxies).
     "whitenoise.middleware.WhiteNoiseMiddleware",
