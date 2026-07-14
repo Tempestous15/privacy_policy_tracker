@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Privacy Policy Tracker</title>
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --surface: #fffdf7;
+    --border: #e0d5c5;
+    --text: #3b2a1a;
+    --text-muted: #8a7b6b;
+    --brown-dark: #4a3728;
+    --accent: #8b6f4e;
+    --accent-hover: #6e5640;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    width: 360px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 0.9rem 1rem 0.7rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--brown-dark);
+  }
+  header p {
+    margin: 0.2rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  main { padding: 0.9rem 1rem 1rem; }
+  #scanBtn {
+    width: 100%;
+    padding: 0.65rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+    background: var(--brown-dark);
+    color: var(--surface);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #scanBtn:hover:not(:disabled) { background: var(--accent-hover); }
+  #scanBtn:disabled { opacity: 0.6; cursor: default; }
+
+  .status {
+    margin-top: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .error {
+    margin-top: 0.6rem;
+    background: #fdf0ee;
+    border: 1px solid #f0c8c2;
+    color: #a8402e;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  #siteInfo {
+    margin-top: 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    font-size: 0.82rem;
+  }
+  #siteInfo p { margin: 0.15rem 0; word-break: break-word; }
+  #siteInfo .label { color: var(--text-muted); }
+  #noPolicyText { color: #a8402e; }
+  #discoveryNote { margin-top: 0.3rem; font-size: 0.75rem; color: var(--text-muted); }
+  .confidence-tag {
+    display: inline-block; padding: 0.05rem 0.45rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 600; margin-left: 0.3rem; vertical-align: middle;
+  }
+  .confidence-high { background: #e8f5e9; color: #2e7d32; }
+  .confidence-medium { background: #fff8e1; color: #b8860b; }
+  .confidence-low { background: #f0f0f0; color: #757575; }
+
+  #summaryBox {
+    margin-top: 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 0.85rem;
+  }
+  .mock-banner {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px;
+    padding: 0.5rem 0.7rem; font-size: 0.75rem; color: #7a5c00; margin-bottom: 0.6rem;
+  }
+  .risk-badge {
+    display: inline-block; padding: 0.2rem 0.65rem; border-radius: 999px;
+    font-weight: 600; font-size: 0.78rem; margin-bottom: 0.5rem;
+  }
+  .risk-low { background: #e8f5e9; color: #2e7d32; }
+  .risk-medium { background: #fff8e1; color: #b8860b; }
+  .risk-high { background: #ffebee; color: #c62828; }
+  .risk-unknown { background: #f0f0f0; color: #757575; }
+
+  #summaryText { font-size: 0.85rem; line-height: 1.45; margin: 0 0 0.6rem; }
+
+  details {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.4rem 0.6rem; margin-bottom: 0.4rem; background: #fffefb;
+    font-size: 0.8rem;
+  }
+  details summary { cursor: pointer; font-weight: 600; color: var(--brown-dark); }
+  details ul { margin: 0.4rem 0 0.1rem 1.1rem; padding: 0; }
+  details.red-flags { border-color: #f0c8c2; background: #fff6f4; }
+
+  h4 { font-size: 0.82rem; margin: 0.7rem 0 0.3rem; color: var(--brown-dark); }
+  #takeawaysList { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.8rem; }
+
+  footer {
+    padding: 0.6rem 1rem 0.8rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Privacy Policy Tracker</h1>
+    <p>Finds this site's privacy policy and summarizes it in plain English.</p>
+  </header>
+  <main>
+    <button id="scanBtn" type="button">Scan this site</button>
+    <div id="status" class="status" hidden></div>
+    <div id="errorBox" class="error" hidden></div>
+
+    <section id="siteInfo" hidden>
+      <p><span class="label">Domain:</span> <strong id="domainText"></strong></p>
+      <p>
+        <span class="label">Privacy policy:</span>
+        <a id="policyLink" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <span id="noPolicyText" hidden>We couldn't automatically find a privacy policy on this page.</span>
+      </p>
+      <p id="discoveryNote" hidden></p>
+    </section>
+
+    <section id="summaryBox" hidden>
+      <div id="mockBanner" class="mock-banner" hidden>
+        Mock summary -- your backend has no ANTHROPIC_API_KEY configured, so this is placeholder data, not a real analysis.
+      </div>
+      <span id="riskBadge" class="risk-badge risk-unknown"></span>
+      <p id="summaryText"></p>
+
+      <details>
+        <summary>Data collected</summary>
+        <ul id="dataCollectedList"></ul>
+      </details>
+      <details>
+        <summary>How data is used</summary>
+        <ul id="dataUsageList"></ul>
+      </details>
+      <details>
+        <summary>Third-party sharing</summary>
+        <ul id="thirdPartyList"></ul>
+      </details>
+      <details>
+        <summary>Retention</summary>
+        <ul id="retentionList"></ul>
+      </details>
+      <details>
+        <summary>Your rights</summary>
+        <ul id="userRightsList"></ul>
+      </details>
+      <details id="redFlagsDetails" class="red-flags">
+        <summary>Red flags</summary>
+        <ul id="redFlagsList"></ul>
+      </details>
+
+      <h4>Takeaways</h4>
+      <ul id="takeawaysList"></ul>
+    </section>
+  </main>
+  <footer>Only scans when you click the button above. No browsing history is stored or sent.</footer>
+  <script src="popup.js"></script>
+</body>
+</html>
