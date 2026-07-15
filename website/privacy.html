@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — ClipPri</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>ClipPri</h1>
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="mission.html">Mission</a>
+                <a href="privacy.html">Privacy</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <div class="container">
+            <div class="page">
+                <h2>Privacy Policy</h2>
+                <p class="updated">Last updated: July 2026</p>
+
+                <p>
+                    ClipPri has no server and no accounts. The browser extension does all of
+                    its work locally, on your device. This policy explains exactly what that means in
+                    practice.
+                </p>
+
+                <h3>We don't operate a backend</h3>
+                <p>
+                    There is no ClipPri server. We don't collect, store, or have access to
+                    the sites you visit, the policies you scan, or anything the extension does on your
+                    behalf. There's nothing for us to see, because nothing is sent to us.
+                </p>
+
+                <h3>What the extension does locally</h3>
+                <ul>
+                    <li><strong>Reads the current page, and follows its privacy-policy link wherever it leads</strong> — often a different domain than the site itself (e.g. a company's policy hosted on a separate legal/policies subdomain). The extension requests broad page-access permission specifically to make this work; it's used only to locate and fetch that policy text, which never leaves your device.</li>
+                    <li><strong>Scans that text on-device</strong> for red flags (data selling, vague third-party sharing, indefinite retention, arbitration clauses, and similar patterns) using a local, non-AI classifier bundled with the extension.</li>
+                    <li><strong>Generates plain-English summaries on-device</strong> using a small language model that runs in your browser via WebGPU. The policy text you're summarizing is never transmitted anywhere to produce that summary.</li>
+                    <li><strong>Saves sites you choose to save</strong> in your browser's own local extension storage. This list lives only on your device and is never synced to us.</li>
+                </ul>
+
+                <h3>The one third-party request the extension makes</h3>
+                <p>
+                    To show community-reviewed ratings for well-known sites, the extension queries the public
+                    <a href="https://tosdr.org/">ToS;DR</a> API directly from your browser. That request goes
+                    to ToS;DR, not to us — see
+                    <a href="https://tosdr.org/en/privacy">ToS;DR's own privacy policy</a> for how they handle
+                    it.
+                </p>
+                <p>
+                    The first time the on-device summary feature is used, your browser also downloads the
+                    language model's weights from a model-hosting CDN. That's a download of static model
+                    files, not a request containing any policy text or browsing data.
+                </p>
+
+                <h3>What we don't do</h3>
+                <ul>
+                    <li>No accounts, no sign-up, no login</li>
+                    <li>No analytics or usage tracking</li>
+                    <li>No server-side storage of anything you scan or save</li>
+                    <li>We never see your browsing history or the content of pages you visit</li>
+                </ul>
+
+                <h3>Contact</h3>
+                <p>
+                    Questions about this policy or the extension's source code can be directed to our
+                    <a href="https://github.com/Tempestous15/privacy_policy_tracker">project repository</a>.
+                </p>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            <a href="mission.html">Our Mission</a> |
+            <a href="privacy.html">Privacy Policy</a>
+            <br>
+            ClipPri
+        </div>
+    </footer>
+</body>
+</html>

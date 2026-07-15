@@ -1,4 +1,4 @@
-# privacy_policy_tracker
+# ClipPri
 **Alex Holmgren, Ethan Hoover, Ryan Szczepkowski, Sophia Hammel**  
 [Google Project Drive](https://drive.google.com/drive/folders/1_a2aJgEtuwcD9vsnFk43dNM1hZW7dvtG?usp=sharing)
 ## Project

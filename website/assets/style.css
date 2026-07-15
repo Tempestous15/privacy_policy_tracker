@@ -1,0 +1,163 @@
+:root {
+    --bg: #f5f0e8;
+    --surface: #fffdf7;
+    --card: #fffdf7;
+    --border: #e0d5c5;
+    --text: #3b2a1a;
+    --text-muted: #8a7b6b;
+    --brown-dark: #4a3728;
+    --brown-mid: #7a6352;
+    --brown-light: #c4a882;
+    --brown-faint: #e8ddd0;
+    --accent: #8b6f4e;
+    --accent-hover: #6e5640;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --radius-lg: 24px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 0 24px; width: 100%; }
+header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 0;
+}
+header .container { display: flex; justify-content: space-between; align-items: center; }
+header h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--brown-dark);
+    letter-spacing: -0.02em;
+}
+header nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-left: 2rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+header nav a:hover { color: var(--brown-dark); }
+main { flex: 1; padding: 2.5rem 0; }
+footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 2rem 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+footer a {
+    color: var(--brown-mid);
+    text-decoration: none;
+    margin: 0 0.5rem;
+    transition: color 0.2s;
+}
+footer a:hover { color: var(--brown-dark); }
+
+/* Landing page */
+.hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: 2rem 0;
+}
+.hero h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--brown-dark);
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+    max-width: 640px;
+}
+.hero p {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+    max-width: 560px;
+}
+.hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
+.btn {
+    display: inline-block;
+    padding: 0.9rem 2rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: background 0.2s, color 0.2s;
+}
+.btn-primary { background: var(--brown-dark); color: var(--surface); }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--surface); color: var(--brown-dark); border: 2px solid var(--border); }
+.btn-secondary:hover { border-color: var(--brown-light); }
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+}
+.feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.5rem;
+}
+.feature-card h3 {
+    font-size: 1.05rem;
+    color: var(--brown-dark);
+    margin-bottom: 0.5rem;
+}
+.feature-card p {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+/* Mission / Privacy pages */
+.page { max-width: 700px; margin: 0 auto; padding: 3rem 0; }
+.page h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--brown-dark);
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+}
+.page .updated {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+    margin-top: -1rem;
+}
+.page p {
+    margin-bottom: 1.2rem;
+    color: var(--text);
+    font-size: 1.05rem;
+    line-height: 1.75;
+}
+.page h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--brown-mid);
+    margin: 2.5rem 0 0.8rem;
+}
+.page ul {
+    margin: 0.5rem 0 1.5rem 1.5rem;
+    color: var(--text);
+}
+.page li {
+    margin-bottom: 0.5rem;
+    line-height: 1.65;
+}
