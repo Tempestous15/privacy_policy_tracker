@@ -100,6 +100,163 @@ async function renderTosdr(container, domain) {
   }
 }
 
+// "Observed" channel -- what's technically detectable happening on this
+// site (third-party trackers, categories, fingerprinting), independent of
+// anything the privacy policy claims. See tracker_radar_client.js: this is
+// a bundled, point-in-time snapshot for a curated site list, not a live
+// scan of the current tab -- the copy below says "detected in a scan on
+// <date>", deliberately never "what this site is doing right now" or
+// "what this site does with your data" (we can't observe that; only
+// technically-detectable network behavior). Never blocks the Disclosed
+// section: failures/misses here are shown inline only.
+function _explainMatchedDomain(entry) {
+  const label = entry.owner ? `${entry.domain} (${entry.owner})` : entry.domain;
+  const explanations = [];
+  for (const cat of entry.categories || []) {
+    const text = window.TrackerCategoryGlossary && TrackerCategoryGlossary.explainCategory(cat);
+    explanations.push(text || cat);
+  }
+  const fpExplain =
+    entry.fingerprinting >= 2 && window.TrackerCategoryGlossary
+      ? TrackerCategoryGlossary.explainFingerprinting(entry.fingerprinting)
+      : null;
+  const parts = [...new Set(explanations)];
+  if (fpExplain) parts.push(fpExplain);
+  return { label, detail: parts.join(" ") };
+}
+
+async function renderObserved(container, domain, tabId) {
+  container.innerHTML = "<p class=\"muted\">Checking Tracker Radar...</p>";
+  try {
+    const profile = await TrackerRadarClient.lookupDomain(domain, tabId);
+    container.innerHTML = "";
+    if (!profile) {
+      container.innerHTML =
+        "<p class=\"muted\">This site is not in our tracker scan yet -- not in the bundled snapshot, and either no tabId was available or nothing was captured live for this tab yet (try reloading the page, then checking again).</p>";
+      return;
+    }
+
+    const level = SiteRiskModel.observedLevelFromRiskScore(profile.riskScore);
+    container.appendChild(riskBadge(level));
+
+    const summary = document.createElement("p");
+    summary.className = "summary-text";
+    summary.textContent =
+      profile.trackerCount === 0
+        ? "No third-party requests detected."
+        : `${profile.trackerCount} third-party domain(s) contacted across ${profile.distinctOwnerCount} compan${profile.distinctOwnerCount === 1 ? "y" : "ies"}.`;
+    container.appendChild(summary);
+
+    const matchedDomains = profile.matchedDomains || [];
+    const flagged = matchedDomains.filter((d) => d.bucket === "fingerprinting_heavy");
+    if (flagged.length) {
+      const flagBlock = document.createElement("div");
+      flagBlock.className = "observed-flagged";
+      const heading = document.createElement("strong");
+      heading.textContent = `⚠️ ${flagged.length} tracker${flagged.length === 1 ? "" : "s"} flagged for fingerprinting-heavy or high-risk behavior`;
+      flagBlock.appendChild(heading);
+      const ul = document.createElement("ul");
+      for (const entry of flagged) {
+        const { label, detail } = _explainMatchedDomain(entry);
+        const li = document.createElement("li");
+        const strong = document.createElement("strong");
+        strong.textContent = label;
+        li.appendChild(strong);
+        if (detail) li.appendChild(document.createTextNode(" -- " + detail));
+        ul.appendChild(li);
+      }
+      flagBlock.appendChild(ul);
+      container.appendChild(flagBlock);
+    }
+
+    const otherMatched = matchedDomains.filter((d) => d.bucket !== "fingerprinting_heavy");
+    if (otherMatched.length) {
+      const details = document.createElement("details");
+      details.className = "summary-section";
+      const summaryEl = document.createElement("summary");
+      summaryEl.textContent = `${otherMatched.length} other tracker${otherMatched.length === 1 ? "" : "s"} detected`;
+      details.appendChild(summaryEl);
+      const ul = document.createElement("ul");
+      for (const entry of otherMatched) {
+        const { label, detail } = _explainMatchedDomain(entry);
+        const li = document.createElement("li");
+        li.textContent = detail ? `${label} -- ${detail}` : label;
+        ul.appendChild(li);
+      }
+      details.appendChild(ul);
+      container.appendChild(details);
+    }
+
+    if (profile.unmatchedDomains && profile.unmatchedDomains.length) {
+      const details = document.createElement("details");
+      details.className = "summary-section";
+      const summaryEl = document.createElement("summary");
+      summaryEl.textContent = `${profile.unmatchedDomains.length} more domain(s) contacted, not yet in our tracker index`;
+      details.appendChild(summaryEl);
+      const ul = document.createElement("ul");
+      for (const d of profile.unmatchedDomains) {
+        const li = document.createElement("li");
+        li.textContent = d;
+        ul.appendChild(li);
+      }
+      details.appendChild(ul);
+      container.appendChild(details);
+      if (profile.coverage && profile.coverage.riskScoreWithheld) {
+        const note = document.createElement("p");
+        note.className = "muted";
+        note.textContent = "Not enough of what was contacted matched our tracker index to score confidently -- the list above is everything real that was seen, even though we cannot yet say what most of it does.";
+        container.appendChild(note);
+      }
+    }
+
+    const capturedNote = document.createElement("p");
+    capturedNote.className = "muted";
+    const isLive = typeof profile.snapshotSource === "string" && profile.snapshotSource.startsWith("live capture");
+    capturedNote.textContent = isLive
+      ? "Detected live from this tab's current page load -- not a continuous monitor; reload/revisit to refresh."
+      : `Detected in a scan on ${profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan"} -- not a live monitor of this tab.`;
+    container.appendChild(capturedNote);
+  } catch (err) {
+    container.innerHTML = `<p class="muted">Tracker Radar lookup unavailable: ${err.message}</p>`;
+  }
+}
+
+// Cross-channel comparison banner: fetches Disclosed (ToS;DR) and Observed
+// (Tracker Radar) independently, via SiteRiskModel.compareChannels (see
+// risk_model.js -- deliberately never a blended score), and surfaces a
+// prominent note only when the two genuinely disagree. Silent when they
+// agree or when either side has no data, so the UI doesn't clutter itself
+// with a banner that has nothing useful to say. Runs alongside, not before,
+// the two sections' own renders -- a slow/failed comparison never blocks
+// renderClassifier/renderTosdr/renderObserved from showing their own
+// results.
+async function renderChannelAgreementBanner(container, domain, tabId) {
+  container.innerHTML = "";
+  const [tosdrResult, observedResult] = await Promise.allSettled([
+    TosdrClient.lookupDomain(domain),
+    TrackerRadarClient.lookupDomain(domain, tabId),
+  ]);
+
+  const tosdr = tosdrResult.status === "fulfilled" ? tosdrResult.value : null;
+  const observed = observedResult.status === "fulfilled" ? observedResult.value : null;
+  if (!tosdr || !observed) return; // nothing to compare -- stay quiet
+
+  const disclosedLevel = SiteRiskModel.disclosedLevelFromTosdrRating(tosdr.rating);
+  const observedLevel = SiteRiskModel.observedLevelFromRiskScore(observed.riskScore);
+  const comparison = SiteRiskModel.compareChannels(disclosedLevel, observedLevel);
+  if (!comparison.comparable || comparison.agree) return;
+
+  const banner = document.createElement("div");
+  banner.className = "channel-disagreement-banner";
+  const title = document.createElement("strong");
+  title.textContent = "Disclosed and observed signals disagree";
+  const note = document.createElement("p");
+  note.textContent = comparison.note;
+  banner.appendChild(title);
+  banner.appendChild(note);
+  container.appendChild(banner);
+}
+
 // Optional, on-demand result -- only generated after the user clicks "Get
 // AI summary". Runs a small model entirely on-device via WebGPU (see
 // webllm-client.js); no policy text is ever sent anywhere for this. A plain
@@ -149,10 +306,23 @@ function addAiSummaryButton(parent, policyText) {
   parent.appendChild(block);
 }
 
-// Renders the full result for one site (classifier + ToS;DR + AI-summary
-// button) into `container`. `site` is { domain, policyUrl, text }.
+// Renders the full result for one site into `container`. `site` is
+// { domain, policyUrl, text, tabId? }. tabId is optional and only set for
+// the current tab's live "check this site" flow (see initMainScreen) --
+// it lets the Observed channel try live capture; saved/historical sites
+// omit it and go straight to the bundled snapshot.
+//
+// Layout: an (usually empty) agreement banner first, then two clearly
+// separate channels -- "Disclosed" (classifier + ToS;DR, both readings of
+// the policy text) and "Observed" (Tracker Radar, independent of the
+// policy) -- never merged into one badge/score. See risk_model.js and
+// root README.md "Two-channel risk model".
 function renderSiteResult(container, site) {
   container.innerHTML = "";
+
+  const bannerContainer = document.createElement("div");
+  container.appendChild(bannerContainer);
+  renderChannelAgreementBanner(bannerContainer, site.domain, site.tabId);
 
   if (site.policyUrl) {
     const link = document.createElement("p");
@@ -165,6 +335,11 @@ function renderSiteResult(container, site) {
     container.appendChild(link);
   }
 
+  const disclosedHeading = document.createElement("h3");
+  disclosedHeading.className = "channel-heading";
+  disclosedHeading.textContent = "Disclosed -- what the policy says";
+  container.appendChild(disclosedHeading);
+
   const classifierContainer = document.createElement("div");
   renderClassifier(classifierContainer, site.text);
   container.appendChild(classifierContainer);
@@ -174,6 +349,15 @@ function renderSiteResult(container, site) {
   renderTosdr(tosdrContainer, site.domain);
 
   addAiSummaryButton(container, site.text);
+
+  const observedHeading = document.createElement("h3");
+  observedHeading.className = "channel-heading";
+  observedHeading.textContent = "Observed -- what we can technically detect";
+  container.appendChild(observedHeading);
+
+  const observedContainer = document.createElement("div");
+  container.appendChild(observedContainer);
+  renderObserved(observedContainer, site.domain, site.tabId);
 }
 
 async function getCurrentTab() {
@@ -240,7 +424,12 @@ async function initMainScreen() {
         return;
       }
       const domain = new URL(tabUrl).hostname;
-      const site = { domain, policyUrl, text };
+      // tabId is included here (the live "check this site" path) so
+      // Observed can try live capture -- see tracker_radar_client.js.
+      // Saved/historical sites (refreshSavedList below) never set tabId,
+      // since there's no live tab to ask about a past visit; they go
+      // straight to the bundled snapshot, which is correct for them.
+      const site = { domain, policyUrl, text, tabId: tab.id };
       renderSiteResult(els.lookupResult, site);
       await SiteStorage.saveSite(domain, site);
       refreshSavedList();
