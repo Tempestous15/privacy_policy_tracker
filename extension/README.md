@@ -31,6 +31,13 @@ summary (WebLLM, via WebGPU) is effectively Chrome/Chromium-only right now
   directly for community-reviewed ratings on well-known sites. The only
   network request this extension makes to a third party.
 - **`storage.js`** -- saved sites, kept in `chrome.storage.local` only.
+- **`tracker_radar_client.js`** -- looks up the current domain in
+  `tracker_radar_snapshot.json` (a bundled, point-in-time capture from
+  `../tracker_radar/`, copied here the same way `redflags-engine.js` is --
+  see "Two-channel risk model" below). No network call.
+- **`risk_model.js`** -- pure functions that compare the Disclosed
+  (ToS;DR) and Observed (Tracker Radar) channels and decide whether they
+  disagree. Never combines them into one score -- see below.
 - **`webllm-client.js`** / **`background.js`** -- an on-device LLM
   ([WebLLM](https://github.com/mlc-ai/web-llm), via WebGPU) that generates
   the plain-English summary. The model runs in the MV3 service worker
@@ -77,3 +84,101 @@ Under a software/virtualized GPU (e.g. SwiftShader, as seen in some headless
 CI environments) the model downloads and loads correctly but shader
 compilation fails -- that reflects the environment's actual GPU, not a bug,
 and isn't something the extension can detect or work around.
+
+## Two-channel risk model: Disclosed vs. Observed (`siteBehaviorIntegration` branch)
+
+The popup now shows a site's result as two clearly separate channels,
+never merged into one score:
+
+- **Disclosed -- what the policy says.** The existing classifier
+  (`redflags-engine.js`) and ToS;DR (`tosdr.js`) results, both readings of
+  the site's stated privacy policy.
+- **Observed -- what we can technically detect.** `tracker_radar_client.js`
+  looks up third-party trackers actually captured on the site (see
+  `../tracker_radar/`), independent of anything the policy claims.
+
+`risk_model.js` is the only place that compares the two, and it
+deliberately never blends them into a single badge/number: a browser
+extension can't see a company's actual internal data handling, only its
+public disclosures and technically observable network behavior, and a
+combined score would overstate how much either signal alone can support.
+When the two channels' levels are far enough apart to be a real mismatch
+(not just adjacent buckets), `popup.js` shows a banner above both sections
+-- "Disclosed and observed signals disagree" -- so that's the first thing
+a user sees, before either channel's own detail. When they agree, or
+either side has no data for that domain, the banner stays silent rather
+than asserting something it can't support.
+
+Wording matters here: Observed-channel copy always says things like
+"detected in a scan on \<date\>" or "we can technically detect", never
+"what this site does with your data" -- that phrasing would claim
+visibility the extension doesn't have.
+
+### Why Observed is a snapshot, not a live scan
+
+`tracker_radar/` captures third-party trackers by driving a real headless
+Chromium via Playwright, which can't run inside a browser-extension popup
+or content script. So `tracker_radar_snapshot.json` in this directory is a
+bundled, point-in-time capture for `tracker_radar/config.SITES` (currently
+~20 curated sites) -- a generated artifact copied here the same way
+`classifier/dist/redflags-engine.js` is (see `../classifier/README.md`).
+Sites outside that curated list show "This site isn't in our current
+tracker scan yet" in the Observed section rather than silently omitting it
+or implying a clean result.
+
+To regenerate the snapshot after re-running the Tracker Radar milestone:
+
+```bash
+python3 -m tracker_radar.run --out tracker_radar_results.json   # from repo root
+cp tracker_radar_results.json extension/tracker_radar_snapshot.json
+# then wrap it with the {schemaNote, source, capturedAt, entries} metadata
+# tracker_radar_client.js expects -- see that file's header comment.
+```
+
+Broadening Observed coverage to arbitrary sites (not just the curated
+list) would mean live in-browser detection via `chrome.webRequest` plus a
+bundled subset of the Tracker Radar dataset -- a real follow-on scope
+(new permission, porting `tracker_radar/score.py`'s rule to JS, deciding
+how to trim a 20k+ file dataset), not something this branch attempts.
+
+### Testing this branch locally
+
+1. Load the extension as usual (see "Load it for testing" above) from
+   this branch's `extension/` directory.
+2. Visit and check sites already in `tracker_radar_snapshot.json` to see
+   both channels populated -- e.g. `google.com`, `amazon.com`,
+   `duckduckgo.com`, `reddit.com`, `nytimes.com` (see
+   `tracker_radar/config.py` for the full curated list).
+3. Visit a site *not* in that list (e.g. any small/unlisted site) to
+   confirm the Observed section degrades to "not in our current tracker
+   scan yet" without breaking the Disclosed section above it.
+4. To see the disagreement banner fire, compare a site ToS;DR rates poorly
+   (C/D/E) against a low observed tracker count, or vice versa -- exact
+   pairings will drift as both datasets are refreshed, so there's no fixed
+   example that's guaranteed to disagree forever.
+5. To check partial-failure resilience without waiting for a real outage:
+   temporarily break the ToS;DR fetch (e.g. change `TOSDR_API_BASE` in
+   `tosdr.js` to an invalid host) and confirm the Observed section still
+   renders fully. Revert before committing.
+
+### Existing files touched, and why
+
+This integration prefers new files (`tracker_radar_client.js`,
+`risk_model.js`, `tracker_radar_snapshot.json`) over editing existing
+ones. Three existing, hand-authored files needed small additive edits to
+wire the new module into the popup's render logic:
+
+- **`popup.html`** -- two new `<script>` tags, nothing else changed.
+- **`popup.css`** -- one new block appended at the end of the file for the
+  channel headings and the disagreement banner; no existing rules touched.
+- **`popup.js`** -- two new render functions (`renderObserved`,
+  `renderChannelAgreementBanner`) added alongside the existing
+  `renderTosdr`/`renderClassifier`, and `renderSiteResult` gained a banner
+  container plus "Disclosed"/"Observed" headings around the
+  already-existing classifier/ToS;DR/AI-summary calls. No existing
+  function body was rewritten -- see the branch diff for the exact
+  (append-only, except that one function) change.
+
+All three files were last rewritten in commit `9fd2c0a` (WebGPU/Pyodide
+overhaul) -- the edits above were kept intentionally small for that
+reason.

@@ -100,6 +100,100 @@ async function renderTosdr(container, domain) {
   }
 }
 
+// "Observed" channel -- what's technically detectable happening on this
+// site (third-party trackers, categories, fingerprinting), independent of
+// anything the privacy policy claims. See tracker_radar_client.js: this is
+// a bundled, point-in-time snapshot for a curated site list, not a live
+// scan of the current tab -- the copy below says "detected in a scan on
+// <date>", deliberately never "what this site is doing right now" or
+// "what this site does with your data" (we can't observe that; only
+// technically-detectable network behavior). Never blocks the Disclosed
+// section: failures/misses here are shown inline only.
+async function renderObserved(container, domain) {
+  container.innerHTML = '<p class="muted">Checking Tracker Radar…</p>';
+  try {
+    const profile = await TrackerRadarClient.lookupDomain(domain);
+    container.innerHTML = "";
+    if (!profile) {
+      container.innerHTML =
+        '<p class="muted">This site isn\'t in our current tracker scan yet.</p>';
+      return;
+    }
+
+    const level = SiteRiskModel.observedLevelFromRiskScore(profile.riskScore);
+    container.appendChild(riskBadge(level));
+
+    const summary = document.createElement("p");
+    summary.className = "summary-text";
+    if (profile.coverage && profile.coverage.riskScoreWithheld) {
+      summary.textContent = `${profile.trackerCount} third-party domain(s) contacted; not enough matched the tracker dataset to score confidently.`;
+    } else {
+      summary.textContent = `${profile.trackerCount} third-party domain(s) contacted across ${profile.distinctOwnerCount} compan${profile.distinctOwnerCount === 1 ? "y" : "ies"}.`;
+    }
+    container.appendChild(summary);
+
+    if (profile.topCategories && profile.topCategories.length) {
+      const details = document.createElement("details");
+      details.className = "summary-section";
+      const summaryEl = document.createElement("summary");
+      summaryEl.textContent = `Top categories detected (${profile.topCategories.length})`;
+      details.appendChild(summaryEl);
+      const ul = document.createElement("ul");
+      for (const cat of profile.topCategories) {
+        const li = document.createElement("li");
+        li.textContent = cat;
+        ul.appendChild(li);
+      }
+      details.appendChild(ul);
+      container.appendChild(details);
+    }
+
+    const capturedNote = document.createElement("p");
+    capturedNote.className = "muted";
+    const capturedDate = profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan";
+    capturedNote.textContent = `Detected in a scan on ${capturedDate} -- not a live monitor of this tab.`;
+    container.appendChild(capturedNote);
+  } catch (err) {
+    container.innerHTML = `<p class="muted">Tracker Radar lookup unavailable: ${err.message}</p>`;
+  }
+}
+
+// Cross-channel comparison banner: fetches Disclosed (ToS;DR) and Observed
+// (Tracker Radar) independently, via SiteRiskModel.compareChannels (see
+// risk_model.js -- deliberately never a blended score), and surfaces a
+// prominent note only when the two genuinely disagree. Silent when they
+// agree or when either side has no data, so the UI doesn't clutter itself
+// with a banner that has nothing useful to say. Runs alongside, not before,
+// the two sections' own renders -- a slow/failed comparison never blocks
+// renderClassifier/renderTosdr/renderObserved from showing their own
+// results.
+async function renderChannelAgreementBanner(container, domain) {
+  container.innerHTML = "";
+  const [tosdrResult, observedResult] = await Promise.allSettled([
+    TosdrClient.lookupDomain(domain),
+    TrackerRadarClient.lookupDomain(domain),
+  ]);
+
+  const tosdr = tosdrResult.status === "fulfilled" ? tosdrResult.value : null;
+  const observed = observedResult.status === "fulfilled" ? observedResult.value : null;
+  if (!tosdr || !observed) return; // nothing to compare -- stay quiet
+
+  const disclosedLevel = SiteRiskModel.disclosedLevelFromTosdrRating(tosdr.rating);
+  const observedLevel = SiteRiskModel.observedLevelFromRiskScore(observed.riskScore);
+  const comparison = SiteRiskModel.compareChannels(disclosedLevel, observedLevel);
+  if (!comparison.comparable || comparison.agree) return;
+
+  const banner = document.createElement("div");
+  banner.className = "channel-disagreement-banner";
+  const title = document.createElement("strong");
+  title.textContent = "Disclosed and observed signals disagree";
+  const note = document.createElement("p");
+  note.textContent = comparison.note;
+  banner.appendChild(title);
+  banner.appendChild(note);
+  container.appendChild(banner);
+}
+
 // Optional, on-demand result -- only generated after the user clicks "Get
 // AI summary". Runs a small model entirely on-device via WebGPU (see
 // webllm-client.js); no policy text is ever sent anywhere for this. A plain
@@ -149,10 +243,20 @@ function addAiSummaryButton(parent, policyText) {
   parent.appendChild(block);
 }
 
-// Renders the full result for one site (classifier + ToS;DR + AI-summary
-// button) into `container`. `site` is { domain, policyUrl, text }.
+// Renders the full result for one site into `container`. `site` is
+// { domain, policyUrl, text }.
+//
+// Layout: an (usually empty) agreement banner first, then two clearly
+// separate channels -- "Disclosed" (classifier + ToS;DR, both readings of
+// the policy text) and "Observed" (Tracker Radar, independent of the
+// policy) -- never merged into one badge/score. See risk_model.js and
+// root README.md "Two-channel risk model".
 function renderSiteResult(container, site) {
   container.innerHTML = "";
+
+  const bannerContainer = document.createElement("div");
+  container.appendChild(bannerContainer);
+  renderChannelAgreementBanner(bannerContainer, site.domain);
 
   if (site.policyUrl) {
     const link = document.createElement("p");
@@ -165,6 +269,11 @@ function renderSiteResult(container, site) {
     container.appendChild(link);
   }
 
+  const disclosedHeading = document.createElement("h3");
+  disclosedHeading.className = "channel-heading";
+  disclosedHeading.textContent = "Disclosed -- what the policy says";
+  container.appendChild(disclosedHeading);
+
   const classifierContainer = document.createElement("div");
   renderClassifier(classifierContainer, site.text);
   container.appendChild(classifierContainer);
@@ -174,6 +283,15 @@ function renderSiteResult(container, site) {
   renderTosdr(tosdrContainer, site.domain);
 
   addAiSummaryButton(container, site.text);
+
+  const observedHeading = document.createElement("h3");
+  observedHeading.className = "channel-heading";
+  observedHeading.textContent = "Observed -- what we can technically detect";
+  container.appendChild(observedHeading);
+
+  const observedContainer = document.createElement("div");
+  container.appendChild(observedContainer);
+  renderObserved(observedContainer, site.domain);
 }
 
 async function getCurrentTab() {
