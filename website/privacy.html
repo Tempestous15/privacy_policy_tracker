@@ -42,7 +42,19 @@
                     <li><strong>Scans that text on-device</strong> for red flags (data selling, vague third-party sharing, indefinite retention, arbitration clauses, and similar patterns) using a local, non-AI classifier bundled with the extension.</li>
                     <li><strong>Generates plain-English summaries on-device</strong> using a small language model that runs in your browser via WebGPU. The policy text you're summarizing is never transmitted anywhere to produce that summary.</li>
                     <li><strong>Saves sites you choose to save</strong> in your browser's own local extension storage. This list lives only on your device and is never synced to us.</li>
+                    <li><strong>Watches which third-party domains a site contacts as you browse</strong> (using the browser's <code>webRequest</code> API) and checks them against a tracker-categorization dataset bundled with the extension, from <a href="https://github.com/duckduckgo/tracker-radar">DuckDuckGo's Tracker Radar</a>. This only observes requests your browser is already making — it doesn't modify, block, or add any network traffic. What's captured for a tab is kept in the browser's own temporary session storage, cleared automatically when that browsing session ends, and is never transmitted anywhere.</li>
                 </ul>
+
+                <h3>About the "read and change data on all websites" permission</h3>
+                <p>
+                    The extension requests broad page/network access (<code>webRequest</code> and broad
+                    <code>host_permissions</code>) for two reasons covered above: following a privacy
+                    policy link to whatever domain it lives on, and observing third-party requests for the
+                    tracker-detection feature. Despite the permission's name, the extension cannot see the
+                    <em>content</em> of your browsing (page contents on other tabs, passwords, form data)
+                    through this permission — it only reads request metadata (which domains were contacted)
+                    and page text you explicitly asked it to check.
+                </p>
 
                 <h3>The one third-party request the extension makes</h3>
                 <p>

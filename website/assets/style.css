@@ -161,3 +161,58 @@ footer a:hover { color: var(--brown-dark); }
     margin-bottom: 0.5rem;
     line-height: 1.65;
 }
+
+/* Disclosed vs. Observed comparison (website branch) -- mirrors the
+   extension popup's two-channel model; never rendered as one blended
+   card/score, matching risk_model.js's design principle. */
+.channel-compare {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    margin-top: 3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.channel-compare-card {
+    flex: 1 1 260px;
+    max-width: 320px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.5rem;
+}
+.channel-compare-card h3 {
+    font-size: 1.1rem;
+    color: var(--brown-dark);
+    margin-bottom: 0.15rem;
+}
+.channel-compare-sub {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--brown-light);
+    margin-bottom: 0.75rem;
+}
+.channel-compare-card p:not(.channel-compare-sub) {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+.channel-compare-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: var(--brown-light);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+.channel-compare-note {
+    max-width: 640px;
+    margin: 1.25rem auto 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}

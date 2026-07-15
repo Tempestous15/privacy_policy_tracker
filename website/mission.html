@@ -40,6 +40,23 @@
                     community-reviewed ratings from <a href="https://tosdr.org/">ToS;DR</a>, and can generate
                     a plain-English summary using a small language model that runs entirely on your device.
                 </p>
+                <p>
+                    That covers what a site <em>says</em> it does. It doesn't cover what a site is
+                    <em>actually</em> doing — a policy can say almost anything, and most people have no way
+                    to check it. So the extension also watches which third-party trackers a site actually
+                    contacts as you browse, and checks them against DuckDuckGo's Tracker Radar dataset. We
+                    call these two things <strong>Disclosed</strong> (what the policy says) and
+                    <strong>Observed</strong> (what's technically detectable) — and we never combine them
+                    into a single score.
+                </p>
+                <p>
+                    That's a deliberate choice, not a missing feature. A browser extension can't see inside
+                    a company's servers or know what happens to your data after it's collected — it can only
+                    read public disclosures and observe technically detectable behavior on your own device.
+                    Blending those into one number would claim a certainty neither source can actually
+                    support. So we show them side by side, and flag it clearly on the rare occasion they
+                    disagree — because that disagreement is itself useful information.
+                </p>
 
                 <h3>What we believe</h3>
                 <p>
