@@ -110,10 +110,11 @@ function addAiSummaryButton(parent, policyText) {
   const block = document.createElement("div");
   block.className = "ai-summary-block";
 
-  if (typeof WebLLMClient === "undefined") {
+  if (typeof WebLLMClient === "undefined" || !navigator.gpu) {
     const p = document.createElement("p");
     p.className = "muted";
-    p.textContent = "On-device AI summary isn't available in this browser.";
+    p.textContent = "On-device AI summary needs a GPU with WebGPU support " +
+      "(not available in this browser, or no compatible graphics hardware was found).";
     block.appendChild(p);
     parent.appendChild(block);
     return;
@@ -138,7 +139,9 @@ function addAiSummaryButton(parent, policyText) {
       p.textContent = summary;
       resultEl.appendChild(p);
     } catch (err) {
-      resultEl.innerHTML = `<p class="error">Couldn't generate an on-device summary: ${err.message}</p>`;
+      const message = (err && err.message) ||
+        "the local model failed to load or run (often a missing/unsupported GPU)";
+      resultEl.innerHTML = `<p class="error">Couldn't generate an on-device summary: ${message}</p>`;
     } finally {
       btn.disabled = false;
     }
