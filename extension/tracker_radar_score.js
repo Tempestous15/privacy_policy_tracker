@@ -162,6 +162,24 @@ function buildProfile(site, thirdPartyDomains, dataset) {
     .slice(0, 5)
     .map(([cat]) => cat);
 
+  // Per-domain detail -- namespaced as an addition to the schema
+  // documented in tracker_radar/README.md "Output schema" (which only
+  // has aggregates: topCategories, flaggedOwners, categoryBreakdown).
+  // Safe for any consumer that doesn't know about it to ignore. This is
+  // what lets the popup explain *which specific domain* is doing *what*,
+  // instead of only a rolled-up score -- see popup.js's renderObserved()
+  // and tracker_category_glossary.js.
+  const matchedDomains = matched
+    .map(({ domain, entry, bucket }) => ({
+      domain,
+      owner: ownerName(entry),
+      categories: entry.categories || [],
+      fingerprinting: entry.fingerprinting || 0,
+      bucket,
+    }))
+    // Heaviest/most worth explaining first.
+    .sort((a, b) => (b.fingerprinting || 0) - (a.fingerprinting || 0));
+
   return {
     site,
     trackerCount: total,
@@ -173,6 +191,7 @@ function buildProfile(site, thirdPartyDomains, dataset) {
     fingerprintingBreakdown: fingerprintTierCounts,
     categoryBreakdown: Object.fromEntries(categoryCounter),
     unmatchedDomains: unmatched,
+    matchedDomains,
     coverage,
   };
 }

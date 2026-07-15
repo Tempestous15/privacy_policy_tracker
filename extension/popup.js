@@ -109,14 +109,30 @@ async function renderTosdr(container, domain) {
 // "what this site does with your data" (we can't observe that; only
 // technically-detectable network behavior). Never blocks the Disclosed
 // section: failures/misses here are shown inline only.
+function _explainMatchedDomain(entry) {
+  const label = entry.owner ? `${entry.domain} (${entry.owner})` : entry.domain;
+  const explanations = [];
+  for (const cat of entry.categories || []) {
+    const text = window.TrackerCategoryGlossary && TrackerCategoryGlossary.explainCategory(cat);
+    explanations.push(text || cat);
+  }
+  const fpExplain =
+    entry.fingerprinting >= 2 && window.TrackerCategoryGlossary
+      ? TrackerCategoryGlossary.explainFingerprinting(entry.fingerprinting)
+      : null;
+  const parts = [...new Set(explanations)];
+  if (fpExplain) parts.push(fpExplain);
+  return { label, detail: parts.join(" ") };
+}
+
 async function renderObserved(container, domain, tabId) {
-  container.innerHTML = '<p class="muted">Checking Tracker Radar…</p>';
+  container.innerHTML = "<p class=\"muted\">Checking Tracker Radar...</p>";
   try {
     const profile = await TrackerRadarClient.lookupDomain(domain, tabId);
     container.innerHTML = "";
     if (!profile) {
       container.innerHTML =
-        '<p class="muted">This site isn\'t in our tracker scan yet -- not in the bundled snapshot, and either no tabId was available or nothing matched our (currently small) live-capture index.</p>';
+        "<p class=\"muted\">This site is not in our tracker scan yet -- not in the bundled snapshot, and either no tabId was available or nothing was captured live for this tab yet (try reloading the page, then checking again).</p>";
       return;
     }
 
@@ -125,32 +141,74 @@ async function renderObserved(container, domain, tabId) {
 
     const summary = document.createElement("p");
     summary.className = "summary-text";
-    if (profile.coverage && profile.coverage.riskScoreWithheld) {
-      summary.textContent = `${profile.trackerCount} third-party domain(s) contacted; not enough matched the tracker dataset to score confidently.`;
-    } else {
-      summary.textContent = `${profile.trackerCount} third-party domain(s) contacted across ${profile.distinctOwnerCount} compan${profile.distinctOwnerCount === 1 ? "y" : "ies"}.`;
-    }
+    summary.textContent =
+      profile.trackerCount === 0
+        ? "No third-party requests detected."
+        : `${profile.trackerCount} third-party domain(s) contacted across ${profile.distinctOwnerCount} compan${profile.distinctOwnerCount === 1 ? "y" : "ies"}.`;
     container.appendChild(summary);
 
-    if (profile.topCategories && profile.topCategories.length) {
+    const matchedDomains = profile.matchedDomains || [];
+    const flagged = matchedDomains.filter((d) => d.bucket === "fingerprinting_heavy");
+    if (flagged.length) {
+      const flagBlock = document.createElement("div");
+      flagBlock.className = "observed-flagged";
+      const heading = document.createElement("strong");
+      heading.textContent = `⚠️ ${flagged.length} tracker${flagged.length === 1 ? "" : "s"} flagged for fingerprinting-heavy or high-risk behavior`;
+      flagBlock.appendChild(heading);
+      const ul = document.createElement("ul");
+      for (const entry of flagged) {
+        const { label, detail } = _explainMatchedDomain(entry);
+        const li = document.createElement("li");
+        const strong = document.createElement("strong");
+        strong.textContent = label;
+        li.appendChild(strong);
+        if (detail) li.appendChild(document.createTextNode(" -- " + detail));
+        ul.appendChild(li);
+      }
+      flagBlock.appendChild(ul);
+      container.appendChild(flagBlock);
+    }
+
+    const otherMatched = matchedDomains.filter((d) => d.bucket !== "fingerprinting_heavy");
+    if (otherMatched.length) {
       const details = document.createElement("details");
       details.className = "summary-section";
       const summaryEl = document.createElement("summary");
-      summaryEl.textContent = `Top categories detected (${profile.topCategories.length})`;
+      summaryEl.textContent = `${otherMatched.length} other tracker${otherMatched.length === 1 ? "" : "s"} detected`;
       details.appendChild(summaryEl);
       const ul = document.createElement("ul");
-      for (const cat of profile.topCategories) {
+      for (const entry of otherMatched) {
+        const { label, detail } = _explainMatchedDomain(entry);
         const li = document.createElement("li");
-        li.textContent = cat;
+        li.textContent = detail ? `${label} -- ${detail}` : label;
         ul.appendChild(li);
       }
       details.appendChild(ul);
       container.appendChild(details);
     }
 
-    // Wording depends on which source answered (see tracker_radar_client.js)
-    // -- live capture and the bundled snapshot need different, equally
-    // honest phrasing; neither should ever read as continuous monitoring.
+    if (profile.unmatchedDomains && profile.unmatchedDomains.length) {
+      const details = document.createElement("details");
+      details.className = "summary-section";
+      const summaryEl = document.createElement("summary");
+      summaryEl.textContent = `${profile.unmatchedDomains.length} more domain(s) contacted, not yet in our tracker index`;
+      details.appendChild(summaryEl);
+      const ul = document.createElement("ul");
+      for (const d of profile.unmatchedDomains) {
+        const li = document.createElement("li");
+        li.textContent = d;
+        ul.appendChild(li);
+      }
+      details.appendChild(ul);
+      container.appendChild(details);
+      if (profile.coverage && profile.coverage.riskScoreWithheld) {
+        const note = document.createElement("p");
+        note.className = "muted";
+        note.textContent = "Not enough of what was contacted matched our tracker index to score confidently -- the list above is everything real that was seen, even though we cannot yet say what most of it does.";
+        container.appendChild(note);
+      }
+    }
+
     const capturedNote = document.createElement("p");
     capturedNote.className = "muted";
     const isLive = typeof profile.snapshotSource === "string" && profile.snapshotSource.startsWith("live capture");

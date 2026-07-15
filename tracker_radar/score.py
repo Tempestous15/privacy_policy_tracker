@@ -114,6 +114,28 @@ def build_profile(site: str, third_party_domains: list[str], dataset) -> dict:
         if (entry.get("fingerprinting") or 0) >= config.HIGH_FINGERPRINTING_SCORE_FLOOR
     )
 
+    # Per-domain detail -- an addition on top of the schema described in
+    # README.md "Output schema" (which only has aggregates: topCategories,
+    # flaggedOwners, categoryBreakdown). Safe for any existing consumer to
+    # ignore. Added alongside extension/tracker_radar_score.js's JS port
+    # gaining the same field, so a future run.py regeneration of
+    # extension/tracker_radar_snapshot.json carries per-domain explanation
+    # too, not just the live-capture path.
+    matched_domains = sorted(
+        (
+            {
+                "domain": domain,
+                "owner": _owner_name(entry),
+                "categories": entry.get("categories") or [],
+                "fingerprinting": entry.get("fingerprinting") or 0,
+                "bucket": bucket,
+            }
+            for domain, entry, bucket, _weight in matched
+        ),
+        key=lambda d: d["fingerprinting"],
+        reverse=True,
+    )
+
     return {
         # --- core schema (spec item 5) ---
         "site": site,
@@ -127,6 +149,7 @@ def build_profile(site: str, third_party_domains: list[str], dataset) -> dict:
         "fingerprintingBreakdown": fingerprint_tier_counts,
         "categoryBreakdown": dict(category_counter),
         "unmatchedDomains": unmatched,
+        "matchedDomains": matched_domains,
         "coverage": coverage,
     }
 
