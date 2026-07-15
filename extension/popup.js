@@ -109,14 +109,14 @@ async function renderTosdr(container, domain) {
 // "what this site does with your data" (we can't observe that; only
 // technically-detectable network behavior). Never blocks the Disclosed
 // section: failures/misses here are shown inline only.
-async function renderObserved(container, domain) {
+async function renderObserved(container, domain, tabId) {
   container.innerHTML = '<p class="muted">Checking Tracker Radar…</p>';
   try {
-    const profile = await TrackerRadarClient.lookupDomain(domain);
+    const profile = await TrackerRadarClient.lookupDomain(domain, tabId);
     container.innerHTML = "";
     if (!profile) {
       container.innerHTML =
-        '<p class="muted">This site isn\'t in our current tracker scan yet.</p>';
+        '<p class="muted">This site isn\'t in our tracker scan yet -- not in the bundled snapshot, and either no tabId was available or nothing matched our (currently small) live-capture index.</p>';
       return;
     }
 
@@ -148,10 +148,15 @@ async function renderObserved(container, domain) {
       container.appendChild(details);
     }
 
+    // Wording depends on which source answered (see tracker_radar_client.js)
+    // -- live capture and the bundled snapshot need different, equally
+    // honest phrasing; neither should ever read as continuous monitoring.
     const capturedNote = document.createElement("p");
     capturedNote.className = "muted";
-    const capturedDate = profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan";
-    capturedNote.textContent = `Detected in a scan on ${capturedDate} -- not a live monitor of this tab.`;
+    const isLive = typeof profile.snapshotSource === "string" && profile.snapshotSource.startsWith("live capture");
+    capturedNote.textContent = isLive
+      ? "Detected live from this tab's current page load -- not a continuous monitor; reload/revisit to refresh."
+      : `Detected in a scan on ${profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan"} -- not a live monitor of this tab.`;
     container.appendChild(capturedNote);
   } catch (err) {
     container.innerHTML = `<p class="muted">Tracker Radar lookup unavailable: ${err.message}</p>`;
@@ -167,11 +172,11 @@ async function renderObserved(container, domain) {
 // the two sections' own renders -- a slow/failed comparison never blocks
 // renderClassifier/renderTosdr/renderObserved from showing their own
 // results.
-async function renderChannelAgreementBanner(container, domain) {
+async function renderChannelAgreementBanner(container, domain, tabId) {
   container.innerHTML = "";
   const [tosdrResult, observedResult] = await Promise.allSettled([
     TosdrClient.lookupDomain(domain),
-    TrackerRadarClient.lookupDomain(domain),
+    TrackerRadarClient.lookupDomain(domain, tabId),
   ]);
 
   const tosdr = tosdrResult.status === "fulfilled" ? tosdrResult.value : null;
@@ -244,7 +249,10 @@ function addAiSummaryButton(parent, policyText) {
 }
 
 // Renders the full result for one site into `container`. `site` is
-// { domain, policyUrl, text }.
+// { domain, policyUrl, text, tabId? }. tabId is optional and only set for
+// the current tab's live "check this site" flow (see initMainScreen) --
+// it lets the Observed channel try live capture; saved/historical sites
+// omit it and go straight to the bundled snapshot.
 //
 // Layout: an (usually empty) agreement banner first, then two clearly
 // separate channels -- "Disclosed" (classifier + ToS;DR, both readings of
@@ -256,7 +264,7 @@ function renderSiteResult(container, site) {
 
   const bannerContainer = document.createElement("div");
   container.appendChild(bannerContainer);
-  renderChannelAgreementBanner(bannerContainer, site.domain);
+  renderChannelAgreementBanner(bannerContainer, site.domain, site.tabId);
 
   if (site.policyUrl) {
     const link = document.createElement("p");
@@ -291,7 +299,7 @@ function renderSiteResult(container, site) {
 
   const observedContainer = document.createElement("div");
   container.appendChild(observedContainer);
-  renderObserved(observedContainer, site.domain);
+  renderObserved(observedContainer, site.domain, site.tabId);
 }
 
 async function getCurrentTab() {
@@ -358,7 +366,12 @@ async function initMainScreen() {
         return;
       }
       const domain = new URL(tabUrl).hostname;
-      const site = { domain, policyUrl, text };
+      // tabId is included here (the live "check this site" path) so
+      // Observed can try live capture -- see tracker_radar_client.js.
+      // Saved/historical sites (refreshSavedList below) never set tabId,
+      // since there's no live tab to ask about a past visit; they go
+      // straight to the bundled snapshot, which is correct for them.
+      const site = { domain, policyUrl, text, tabId: tab.id };
       renderSiteResult(els.lookupResult, site);
       await SiteStorage.saveSite(domain, site);
       refreshSavedList();
