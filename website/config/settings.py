@@ -10,11 +10,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load ANTHROPIC_API_KEY (and any other local secrets) from a .env file next
-# to manage.py, if present -- dev convenience only. .env is gitignored; see
-# .env.example. The key itself is read directly from the environment by
-# tracker/summarizer.py, never stored in this settings module or exposed to
-# templates/static/JS.
 try:
     from dotenv import load_dotenv
     load_dotenv(BASE_DIR / ".env")
@@ -26,18 +21,14 @@ SECRET_KEY = os.environ.get(
     "django-insecure-dev-only-do-not-use-in-production",
 )
 
-# DEBUG defaults to on for local dev; production must set DJANGO_DEBUG=false.
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("1", "true", "yes")
 
-# Comma-separated, e.g. "myapp.example.com,3.90.12.34". When empty and
-# DEBUG=True, Django itself allows localhost/127.0.0.1.
 ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
     if h.strip()
 ]
 
-# Comma-separated origins with scheme, e.g. "https://myapp.example.com"
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
     for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
@@ -52,17 +43,12 @@ if not DEBUG:
             "DJANGO_SECRET_KEY must be set to a real secret in production."
         )
 
-    # Behind nginx, which terminates TLS and forwards the original scheme.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"
-    # Browsers only honor HSTS over HTTPS, so this is inert until TLS is set
-    # up and safe to leave on from day one.
     SECURE_HSTS_SECONDS = 31536000
-    # Off by default so the site works over plain HTTP before certbot runs;
-    # set DJANGO_SSL_REDIRECT=true once HTTPS is live.
     SECURE_SSL_REDIRECT = os.environ.get(
         "DJANGO_SSL_REDIRECT", "false"
     ).lower() in ("1", "true", "yes")
@@ -79,8 +65,6 @@ INSTALLED_APPS = [
     "tracker",
 ]
 
-# Backs the browser-extension API: extension requests carry a per-user token
-# (issued via /api/login/) instead of the session cookie the web UI uses.
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
@@ -92,12 +76,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    # Lets the browser extension's popup/background page call /api/ cross-
-    # origin. Placed early so it can short-circuit extension preflight
-    # OPTIONS requests before session/CSRF/auth middleware see them.
     "tracker.middleware.ExtensionCorsMiddleware",
-    # WhiteNoise serves collected static files directly from gunicorn, so no
-    # separate static-file hosting is needed on EC2 (nginx just proxies).
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -127,8 +106,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# SQLite lives outside the repo checkout in production (DJANGO_DB_PATH, e.g.
-# /var/lib/privacy-tracker/db.sqlite3) so deploys can't clobber the database.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -150,8 +127,6 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# Manifest storage needs `collectstatic` to have run, so only use it in
-# production; dev serves static files straight from the app finders.
 if not DEBUG:
     STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
