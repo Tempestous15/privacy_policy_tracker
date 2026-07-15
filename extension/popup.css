@@ -109,6 +109,7 @@ button:hover { background: var(--accent-hover); }
 .risk-medium { background: #fcf3cf; }
 .risk-high { background: #f8d7da; }
 .risk-unknown { background: #e2e2e2; }
+.tosdr-badge { background: #dbe9f8; margin-left: 0.4rem; }
 
 .summary-text { font-size: 0.85rem; margin: 0.3rem 0; }
 
@@ -120,21 +121,9 @@ details.summary-section summary { cursor: pointer; font-weight: 600; }
 details.summary-section ul { margin: 0.3rem 0 0.3rem 1rem; padding: 0; }
 details.summary-section.red-flags { color: #a33; }
 
-.mock-banner {
-  background: #fcf3cf;
-  border: 1px solid #f0dfa0;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
-  font-size: 0.78rem;
-  margin: 0.4rem 0;
-}
-
 .ai-summary-block { margin-top: 0.5rem; }
 .ai-summary-btn { margin-bottom: 0.3rem; }
 .ai-summary-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
-.ai-summary-hint { margin: 0 0 0.3rem; font-size: 0.75rem; }
-
-#api-key-status { color: #2e7d32; min-height: 1em; }
 
 .saved-item {
   border-top: 1px solid var(--border);

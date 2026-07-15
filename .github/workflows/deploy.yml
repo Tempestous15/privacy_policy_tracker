@@ -26,5 +26,8 @@ jobs:
           role-to-assume: arn:aws:iam::131031217080:role/GitHubActions-S3-DeployRole
           aws-region: us-east-1 
 
+      # website/ is a plain static site (no build step) -- see DEPLOY.md.
       - name: Sync Website Folder to S3
-        run: aws s3 sync ./website s3://privacy-policy-tracker-website --delete
+        run: >
+          aws s3 sync ./website s3://privacy-policy-tracker-website --delete
+          --exclude ".gitignore" --exclude ".venv/*"

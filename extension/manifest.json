@@ -1,17 +1,27 @@
 {
   "manifest_version": 3,
-  "name": "Privacy Policy Tracker",
-  "version": "1.0.0",
-  "description": "Check and save the privacy policy summary for the site you're on, synced with your Privacy Policy Tracker account.",
-  "permissions": ["activeTab", "storage"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "name": "ClipPri",
+  "version": "2.0.1",
+  "description": "Instant, on-device privacy policy scanning -- red flags, ToS;DR ratings, and an on-device AI summary. No account, no server.",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Privacy Policy Tracker"
+    "default_title": "ClipPri"
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "privacy-policy-tracker@example.invalid",
+      "id": "clippri@example.invalid",
       "strict_min_version": "109.0"
     }
   }

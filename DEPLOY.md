@@ -1,163 +1,65 @@
-# Deploying to AWS EC2
+# Deploying the website to S3
 
-## Why EC2 and not S3?
+## What this is
 
-S3 static website hosting can only serve files (HTML/CSS/JS). This app is a
-Django server: it runs Python on every request, talks to a SQLite database,
-scrapes websites, and calls the Anthropic API. None of that can execute on
-S3, so the app itself must run on a compute service — EC2 is the simplest.
-(S3 can still be added later for user-uploaded media or backups; static
-assets are already handled by WhiteNoise, so no bucket is needed for those.)
+`website/` is a plain static site — `index.html`, `mission.html`, `privacy.html`,
+and `assets/style.css`. No server, no database, no build step. It exists purely as
+a marketing/landing page pointing people at the browser extension, which is where
+all of the product's actual functionality lives (runs entirely client-side — see
+`extension/README.md` and the extension's own privacy policy content).
 
-Architecture:
+This is *not* a general "any Django app can move to S3" pattern — it works here
+specifically because the site has no server-side logic left at all. S3 static
+website hosting only serves files; it can't run application code.
 
-```
-Browser ── HTTP(S) ──> nginx (port 80/443, on EC2)
-                          └──> gunicorn (127.0.0.1:8000)
-                                  └──> Django app ──> SQLite (/var/lib/privacy-tracker/)
-                                                 └──> Anthropic API
-```
+## One-time S3 setup
 
-## Account hygiene (before touching EC2)
-
-- **Never use the AWS root user day-to-day.** Create/use an IAM user (or IAM
-  Identity Center user) with only the permissions needed for this project,
-  and turn on MFA for it. If root doesn't already have MFA enabled, enable
-  that too — root can bypass every other control in this guide.
-- **Don't create long-lived IAM access keys if you can avoid it.** Use AWS
-  IAM Identity Center (SSO) for your own CLI access (temporary credentials),
-  or the AWS Console. The GitHub Actions deploy role setup later in this
-  doc is already keyless (OIDC) by design — the instance itself never holds
-  long-lived AWS credentials either, only the temporary ones SSM issues it.
-
-## One-time EC2 setup
-
-1. **Launch an instance** — Ubuntu 24.04, t3.micro is fine to start.
-   - Security group: allow inbound TCP 80/443 (anywhere). **Port 22 is not
-     needed** — deploys and shell access both go through AWS SSM, so leave
-     SSH closed entirely. Don't add an outbound-restricted rule set unless
-     you're prepared to allowlist the Anthropic API and every site the
-     scraper might fetch — default "allow all outbound" is fine here.
-   - Tag the instance `Name=privacy-tracker` (the deploy workflow finds it
-     by this tag).
-   - Attach an IAM instance profile that has the AWS-managed policy
-     `AmazonSSMManagedInstanceCore` **and nothing else**. The SSM agent is
-     preinstalled on Ubuntu AMIs, so nothing to install. Don't attach
-     broader policies "just in case" — if the app is ever compromised
-     (e.g. a bug lets an attacker reach it), the instance role is the
-     ceiling on what they can do to your AWS account.
-   - **Enforce IMDSv2** (Advanced details → Metadata version → "V2 only",
-     or `--metadata-options "HttpTokens=required,HttpEndpointEnabled=enabled"`
-     on the CLI/`RunInstances` call). This app fetches arbitrary
-     user-supplied URLs; the code already blocks requests to
-     `169.254.169.254` (the metadata service) at the application layer, but
-     IMDSv2 requiring a session token via `PUT` before any `GET` is a second,
-     independent layer that would still block a metadata-service hit even if
-     the app-level check were ever bypassed by a bug or a new code path.
-   - **Encrypt the root EBS volume** (checkbox in the launch wizard, or set
-     it as the account default: EC2 → Settings → "Always encrypt new EBS
-     volumes"). Protects the SQLite database and the `.env` secrets file at
-     rest if the volume/snapshot is ever exposed.
-
-   For an interactive shell instead of SSH, use Session Manager:
+1. **Create the bucket** (name must match what's in `.github/workflows/deploy.yml`,
+   currently `privacy-policy-tracker-website`):
 
    ```bash
-   aws ssm start-session --target <instance-id>
-   # or the "Connect" button → "Session Manager" tab in the EC2 console
+   aws s3 mb s3://privacy-policy-tracker-website --region us-east-1
    ```
 
-2. **Install system packages, and turn on automatic security patching**
-   (there's no SSH access to manually patch on a schedule, so unattended
-   upgrades matter more here than on a box you log into regularly):
+2. **Enable static website hosting** on the bucket, with `index.html` as both the
+   index and error document (a single-page-ish marketing site doesn't need a
+   separate 404 page):
 
    ```bash
-   sudo apt update && sudo apt install -y python3-venv nginx git unattended-upgrades
-   sudo dpkg-reconfigure -plow unattended-upgrades   # choose "Yes"
+   aws s3 website s3://privacy-policy-tracker-website \
+     --index-document index.html --error-document index.html
    ```
 
-3. **Clone the repo and create the venv:**
+3. **Allow public read access.** Static website hosting requires the objects (or
+   the bucket) to be publicly readable — there's no way around this for a public
+   marketing page. Either:
+   - Turn off "Block all public access" for this bucket in the console, and attach
+     a bucket policy granting `s3:GetObject` to `"Principal": "*"`, or
+   - Put a CloudFront distribution in front of the bucket instead (recommended if
+     you also want HTTPS on a custom domain — S3 website endpoints are HTTP-only)
+     using an Origin Access Control, which keeps the bucket itself private.
 
-   ```bash
-   sudo mkdir -p /opt/privacy-tracker && sudo chown ubuntu:ubuntu /opt/privacy-tracker
-   cd /opt/privacy-tracker
-   git clone https://github.com/Tempestous15/privacy_policy_tracker.git
-   cd privacy_policy_tracker/website
-   python3 -m venv .venv
-   ./.venv/bin/pip install -r requirements.txt
-   ```
-
-4. **Create the database directory and environment file:**
-
-   ```bash
-   sudo mkdir -p /var/lib/privacy-tracker && sudo chown ubuntu:ubuntu /var/lib/privacy-tracker
-   sudo tee /etc/privacy-tracker.env > /dev/null <<'EOF'
-   DJANGO_SECRET_KEY=<output of: python3 -c "import secrets; print(secrets.token_urlsafe(50))">
-   DJANGO_DEBUG=false
-   DJANGO_ALLOWED_HOSTS=<your-domain-or-ec2-public-dns>
-   DJANGO_CSRF_TRUSTED_ORIGINS=http://<your-domain-or-ec2-public-dns>
-   DJANGO_DB_PATH=/var/lib/privacy-tracker/db.sqlite3
-   ANTHROPIC_API_KEY=<your key, or omit to run in mock mode>
-   EOF
-   sudo chown root:ubuntu /etc/privacy-tracker.env
-   sudo chmod 640 /etc/privacy-tracker.env
-   ```
-
-   (Group-readable by `ubuntu` so `deploy/deploy.sh` can source it when
-   running `manage.py migrate` / `collectstatic` as that user.)
-
-   After enabling HTTPS (step 7), change the CSRF origin to `https://...`.
-
-5. **Migrate, collect static files, create an admin user:**
-
-   ```bash
-   set -a && source /etc/privacy-tracker.env && set +a
-   ./.venv/bin/python manage.py migrate
-   ./.venv/bin/python manage.py collectstatic --noinput
-   ./.venv/bin/python manage.py createsuperuser
-   ```
-
-6. **Install the systemd service and nginx config** (files in `deploy/`):
-
-   ```bash
-   cd /opt/privacy-tracker/privacy_policy_tracker
-   sudo cp deploy/privacy-tracker.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now privacy-tracker
-
-   sudo cp deploy/nginx-privacy-tracker.conf /etc/nginx/sites-available/privacy-tracker
-   sudo ln -s /etc/nginx/sites-available/privacy-tracker /etc/nginx/sites-enabled/
-   sudo rm -f /etc/nginx/sites-enabled/default
-   sudo nginx -t && sudo systemctl reload nginx
-   ```
-
-   The site should now be reachable at `http://<ec2-public-dns>/`.
-
-7. **HTTPS (optional but recommended, needs a domain):**
-
-   ```bash
-   sudo apt install -y certbot python3-certbot-nginx
-   sudo certbot --nginx -d yourdomain.com
-   ```
+4. **Note the endpoint.** The plain S3 website endpoint is
+   `http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com`
+   (region-specific — adjust if not `us-east-1`). Point a custom domain at this
+   (or at a CloudFront distribution in front of it) via CNAME/ALIAS if desired.
 
 ## Automatic deploys (GitHub Actions, keyless)
 
 `.github/workflows/deploy.yml` runs on every push to `main` that touches
-`website/` or `deploy/`. **No permanent credentials are stored in GitHub**:
-the workflow authenticates with GitHub's OIDC identity provider, assumes a
-short-lived AWS role, and executes `deploy/deploy.sh` on the instance via
-SSM Run Command — no SSH keys, no open port 22, nothing to rotate or leak.
+`website/`. It authenticates via GitHub's OIDC identity provider and assumes a
+short-lived AWS role to run `aws s3 sync` — no long-lived AWS credentials stored
+in GitHub.
 
 One-time IAM setup:
 
-1. **OIDC identity provider** (skip if it already exists in the account —
-   it does if the old S3 deploy role was set up): IAM → Identity providers
-   → Add provider → OpenID Connect, provider URL
-   `https://token.actions.githubusercontent.com`, audience
-   `sts.amazonaws.com`.
+1. **OIDC identity provider** (skip if it already exists in the account): IAM →
+   Identity providers → Add provider → OpenID Connect, provider URL
+   `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`.
 
-2. **Deploy role** — create `GitHubActions-EC2-DeployRole` with this trust
-   policy, which only allows workflows from this repo's `main` branch to
-   assume it (replace the account ID if different):
+2. **Deploy role** — create `GitHubActions-S3-DeployRole` with this trust policy
+   (only allows workflows from this repo's `main` branch to assume it; replace the
+   account ID if different):
 
    ```json
    {
@@ -176,8 +78,7 @@ One-time IAM setup:
    }
    ```
 
-3. **Permissions policy** on that role — scoped to running the standard
-   shell-script document on instances tagged `privacy-tracker` only:
+3. **Permissions policy** on that role — scoped to just this bucket:
 
    ```json
    {
@@ -185,43 +86,27 @@ One-time IAM setup:
      "Statement": [
        {
          "Effect": "Allow",
-         "Action": "ec2:DescribeInstances",
-         "Resource": "*"
-       },
-       {
-         "Effect": "Allow",
-         "Action": "ssm:SendCommand",
-         "Resource": "arn:aws:ec2:us-east-1:131031217080:instance/*",
-         "Condition": {
-           "StringEquals": { "aws:ResourceTag/Name": "privacy-tracker" }
-         }
-       },
-       {
-         "Effect": "Allow",
-         "Action": "ssm:SendCommand",
-         "Resource": "arn:aws:ssm:us-east-1::document/AWS-RunShellScript"
-       },
-       {
-         "Effect": "Allow",
-         "Action": "ssm:GetCommandInvocation",
-         "Resource": "*"
+         "Action": ["s3:PutObject", "s3:DeleteObject", "s3:ListBucket"],
+         "Resource": [
+           "arn:aws:s3:::privacy-policy-tracker-website",
+           "arn:aws:s3:::privacy-policy-tracker-website/*"
+         ]
        }
      ]
    }
    ```
 
-4. If the role name, account ID, region, or instance tag differ from the
-   defaults, update the `env:` block at the top of
-   `.github/workflows/deploy.yml`. (A role ARN is not a secret — the trust
-   policy above is what controls who can use it.)
+4. Update the `role-to-assume` ARN and `aws-region` in
+   `.github/workflows/deploy.yml` if the role name, account ID, or region differ.
+   (A role ARN is not a secret — the trust policy above is what controls who can
+   use it.)
 
-The old `GitHubActions-S3-DeployRole` from the retired S3 workflow can be
-deleted, along with any `EC2_*` repository secrets if they were created.
+## Testing locally
 
-## Useful commands on the server
+No server needed — any static file server works:
 
 ```bash
-sudo systemctl status privacy-tracker      # is the app running?
-sudo journalctl -u privacy-tracker -f      # tail app logs
-sudo systemctl restart privacy-tracker     # restart after manual changes
+cd website && python3 -m http.server 8000
 ```
+
+Then visit `http://localhost:8000/`.

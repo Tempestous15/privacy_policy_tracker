@@ -2,38 +2,20 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <title>ClipPri</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <header>
-    <h1>Privacy Policy Tracker</h1>
-    <div id="header-actions" class="hidden">
-      <button id="logout-btn" class="link-btn">Log out</button>
-    </div>
+    <h1>ClipPri</h1>
   </header>
 
   <main>
-    <section id="setup-screen" class="screen hidden">
-      <p class="hint">Enter the address of your Privacy Policy Tracker server.</p>
-      <input id="server-url-input" type="text" placeholder="https://your-server.example.com" />
-      <button id="connect-btn">Connect</button>
-      <p id="setup-error" class="error hidden"></p>
-    </section>
-
-    <section id="login-screen" class="screen hidden">
-      <p class="hint">Log in to see and manage your saved sites.</p>
-      <input id="username-input" type="text" placeholder="Username" autocomplete="username" />
-      <input id="password-input" type="password" placeholder="Password" autocomplete="current-password" />
-      <button id="login-btn">Log in</button>
-      <p id="login-error" class="error hidden"></p>
-      <button id="change-server-btn" class="link-btn">Use a different server</button>
-    </section>
-
-    <section id="main-screen" class="screen hidden">
+    <section id="main-screen" class="screen">
       <div class="card">
         <h2>This site</h2>
         <p id="current-tab-host" class="muted"></p>
-        <button id="check-btn">Check &amp; save this site</button>
+        <button id="check-btn">Check this site</button>
         <div id="lookup-result"></div>
       </div>
 
@@ -41,21 +23,16 @@
         <h2>Your saved sites</h2>
         <div id="saved-list"></div>
       </div>
-
-      <div class="card">
-        <h2>AI summary API key</h2>
-        <p class="hint">Add your own Anthropic API key so "Get AI summary" produces real AI summaries instead of the mock demo. It's only used for your own requests.</p>
-        <p id="api-key-status" class="muted"></p>
-        <input id="api-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" />
-        <button id="save-api-key-btn">Save key</button>
-        <button id="remove-api-key-btn" class="link-btn hidden">Remove saved key</button>
-      </div>
     </section>
 
     <p id="global-error" class="error hidden"></p>
   </main>
 
   <script src="redflags-engine.js"></script>
+  <script src="webllm-client.js"></script>
+  <script src="storage.js"></script>
+  <script src="discovery.js"></script>
+  <script src="tosdr.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

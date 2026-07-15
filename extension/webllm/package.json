@@ -1,0 +1,15 @@
+{
+  "name": "webllm-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build-time only -- bundles @mlc-ai/web-llm into background.js and webllm-client.js, which are committed and loaded directly by the extension. Nothing here runs at extension runtime.",
+  "scripts": {
+    "build": "bash build.sh"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.79"
+  }
+}
