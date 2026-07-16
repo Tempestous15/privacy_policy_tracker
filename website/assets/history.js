@@ -17,6 +17,8 @@ const els = {
   list: document.getElementById("history-list"),
 };
 
+const RED_FLAG_SEVERITY_ICON = { high: "⚠️", medium: "🟡", low: "ℹ️" };
+
 function riskBadge(riskLevel) {
   const labels = {
     low: ["risk-low", "🟢 Low risk"],
@@ -63,14 +65,25 @@ function renderSite(site) {
     const analysis = RedFlagsEngine.analyze(site.text);
     div.appendChild(riskBadge(analysis.riskLevel));
     if (analysis.categories.length) {
+      // Collapsed by default (unlike the extension popup's always-open
+      // version) -- this is the "if they want to" detail view, not the
+      // primary result. Same severity icon + first matched snippet per
+      // category as popup.js's renderClassifier, so the two surfaces
+      // explain a match the same way.
+      const details = document.createElement("details");
+      details.className = "summary-section red-flags";
+      const summaryEl = document.createElement("summary");
+      summaryEl.textContent = `What's contributing to this: ${analysis.categories.length} red flag${analysis.categories.length === 1 ? "" : "s"} found`;
+      details.appendChild(summaryEl);
       const ul = document.createElement("ul");
-      ul.style.marginTop = "0.5rem";
       for (const cat of analysis.categories) {
         const li = document.createElement("li");
-        li.textContent = cat.label;
+        const icon = RED_FLAG_SEVERITY_ICON[cat.severity] || "ℹ️";
+        li.textContent = `${icon} ${cat.label}` + (cat.matches.length ? `: “${cat.matches[0]}”` : "");
         ul.appendChild(li);
       }
-      div.appendChild(ul);
+      details.appendChild(ul);
+      div.appendChild(details);
     } else {
       const p = document.createElement("p");
       p.className = "muted";

@@ -323,3 +323,25 @@ footer a:hover { color: var(--brown-dark); }
 
 .muted { color: var(--text-muted); font-size: 0.92rem; }
 .error { color: #a33322; font-size: 0.92rem; }
+
+/* Collapsible "what's contributing to this" detail -- history.html's
+   red-flag list and check.html's ToS;DR points / tracker category
+   breakdown. Closed by default (see history.js/check.js comments): this
+   is opt-in supporting detail, not the primary badge result. */
+.summary-section {
+    font-size: 0.85rem;
+    margin-top: 0.6rem;
+}
+.summary-section summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--brown-mid);
+}
+.summary-section summary:hover { color: var(--brown-dark); }
+.summary-section ul {
+    margin: 0.5rem 0 0.3rem 1.1rem;
+    padding: 0;
+    color: var(--text);
+}
+.summary-section li { margin-bottom: 0.35rem; line-height: 1.55; }
+.summary-section.red-flags summary { color: #a33322; }

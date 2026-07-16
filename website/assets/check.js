@@ -62,8 +62,15 @@ function tosdrRatingToLevel(rating) {
   return null;
 }
 
-// Returns { ok: true, rating } | { ok: true, rating: null } (no review
-// found) | { ok: false, reason: "cors-or-network" }. Never throws.
+const TOSDR_SEVERITY_ICON = { good: "✅", blocker: "🚫", bad: "⚠️", neutral: "ℹ️" };
+
+// Returns { ok: true, rating, points } | { ok: true, rating: null, points: [] }
+// (no review found) | { ok: false, reason: "cors-or-network" }. Never throws.
+// `points` is the "what's contributing to this" detail -- ToS;DR's
+// per-clause case list (same /service/v3 endpoint and same shape tosdr.js's
+// getServiceDetail uses for the extension popup's "N ToS;DR points"
+// collapsible). Fetched only after a service match is found, so a domain
+// with no review costs one request, not two.
 async function fetchTosdrRating(domain) {
   try {
     const searchResp = await fetch(`${TOSDR_API_BASE}/search/v5?query=${encodeURIComponent(domain)}`);
@@ -80,7 +87,27 @@ async function fetchTosdrRating(domain) {
       })
     );
     const service = exact || services[0] || null;
-    return { ok: true, rating: service ? service.rating || "N/A" : null };
+    if (!service) return { ok: true, rating: null, points: [] };
+
+    let points = [];
+    try {
+      const detailResp = await fetch(`${TOSDR_API_BASE}/service/v3?id=${encodeURIComponent(service.id)}`);
+      if (detailResp.ok) {
+        const detail = await detailResp.json();
+        points = (detail.points || [])
+          .filter((p) => p.case)
+          .map((p) => ({
+            title: p.title,
+            severity: p.case.classification || "neutral",
+            description: p.case.description || "",
+          }));
+      }
+    } catch {
+      // Points are supplementary detail -- losing them must never take
+      // down the rating itself, which already succeeded above.
+    }
+
+    return { ok: true, rating: service.rating || "N/A", points };
   } catch {
     // A CORS block surfaces here as a generic "Failed to fetch" TypeError,
     // indistinguishable from an actual network failure -- see header
@@ -118,6 +145,22 @@ function renderDisclosed(container, tosdrResult) {
   p.style.marginTop = "0.4rem";
   p.textContent = `ToS;DR rating: ${tosdrResult.rating}`;
   container.appendChild(p);
+
+  if (tosdrResult.points && tosdrResult.points.length) {
+    const details = document.createElement("details");
+    details.className = "summary-section";
+    const summaryEl = document.createElement("summary");
+    summaryEl.textContent = `What's contributing to this: ${tosdrResult.points.length} ToS;DR point${tosdrResult.points.length === 1 ? "" : "s"}`;
+    details.appendChild(summaryEl);
+    const ul = document.createElement("ul");
+    for (const point of tosdrResult.points.slice(0, 6)) {
+      const li = document.createElement("li");
+      li.textContent = `${TOSDR_SEVERITY_ICON[point.severity] || "ℹ️"} ${point.title}`;
+      ul.appendChild(li);
+    }
+    details.appendChild(ul);
+    container.appendChild(details);
+  }
 }
 
 function observedRiskLevel(riskScore) {
@@ -151,6 +194,66 @@ async function renderObserved(container, domain) {
   const captured = profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan";
   p.textContent = `${profile.trackerCount} third-party domain(s) detected in a scan on ${captured}.`;
   container.appendChild(p);
+
+  // "What's contributing to this" detail, built entirely from the snapshot
+  // entry's own aggregate fields (categoryBreakdown, flaggedOwners,
+  // fingerprintingBreakdown, coverage, unmatchedDomains -- see
+  // tracker_radar_snapshot.json's schemaNote). Deliberately NOT the
+  // per-domain matchedDomains list popup.js's renderObserved shows -- that
+  // field only exists on a *live capture* profile (built at runtime by
+  // tracker_capture_background.js for the current tab), and this snapshot
+  // is a static, pre-aggregated file with no per-tab capture behind it.
+  const hasDetail =
+    (profile.categoryBreakdown && Object.keys(profile.categoryBreakdown).length) ||
+    (profile.flaggedOwners && profile.flaggedOwners.length) ||
+    (profile.unmatchedDomains && profile.unmatchedDomains.length);
+  if (!hasDetail) return;
+
+  const details = document.createElement("details");
+  details.className = "summary-section";
+  const summaryEl = document.createElement("summary");
+  summaryEl.textContent = "What's contributing to this";
+  details.appendChild(summaryEl);
+
+  if (profile.categoryBreakdown && Object.keys(profile.categoryBreakdown).length) {
+    const ul = document.createElement("ul");
+    for (const [category, count] of Object.entries(profile.categoryBreakdown)) {
+      const li = document.createElement("li");
+      const explain = window.TrackerCategoryGlossary && TrackerCategoryGlossary.explainCategory(category);
+      li.textContent = `${category} (${count}): ${explain || "no plain-language explanation available yet."}`;
+      ul.appendChild(li);
+    }
+    details.appendChild(ul);
+  }
+
+  if (profile.fingerprintingBreakdown) {
+    const highCount = profile.fingerprintingBreakdown.high || 0;
+    if (highCount > 0 && window.TrackerCategoryGlossary) {
+      const fpP = document.createElement("p");
+      fpP.className = "muted";
+      fpP.style.marginTop = "0.3rem";
+      fpP.textContent = `${highCount} domain(s) with heavy fingerprinting capability: ${TrackerCategoryGlossary.explainFingerprinting(3)}`;
+      details.appendChild(fpP);
+    }
+  }
+
+  if (profile.flaggedOwners && profile.flaggedOwners.length) {
+    const ownersP = document.createElement("p");
+    ownersP.className = "muted";
+    ownersP.style.marginTop = "0.3rem";
+    ownersP.textContent = `Companies behind these trackers: ${profile.flaggedOwners.join(", ")}.`;
+    details.appendChild(ownersP);
+  }
+
+  if (profile.unmatchedDomains && profile.unmatchedDomains.length) {
+    const unmatchedP = document.createElement("p");
+    unmatchedP.className = "muted";
+    unmatchedP.style.marginTop = "0.3rem";
+    unmatchedP.textContent = `${profile.unmatchedDomains.length} more domain(s) contacted, not yet in our tracker index.`;
+    details.appendChild(unmatchedP);
+  }
+
+  container.appendChild(details);
 }
 
 els.form.addEventListener("submit", async (e) => {

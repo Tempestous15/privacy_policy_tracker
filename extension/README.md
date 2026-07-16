@@ -368,3 +368,32 @@ component this project doesn't have today (see `privacy.html`'s note that
 any such change would be documented explicitly before shipping). Test this
 against a real deployed page before deciding whether that's needed;
 deliberately not built speculatively here.
+
+### "What's contributing to this" detail (collapsed by default)
+
+Both pages now have an opt-in expandable detail view under each risk badge,
+answering "why this score" rather than just showing the badge:
+
+- `history.js`'s Disclosed badge -- a collapsed `<details>` listing each
+  matched red-flag category with its severity icon and the first matched
+  text snippet, same data `redflags-engine.js`'s `analyze()` already
+  returns (unlike the extension popup's always-open version, this one
+  starts collapsed -- it's supporting detail here, not the primary
+  result).
+- `check.js`'s Disclosed badge -- now also fetches ToS;DR's `/service/v3`
+  point-by-point case list (same second request `tosdr.js`'s
+  `getServiceDetail` makes for the popup), shown in a collapsed details
+  block. One extra request per lookup, only fired after a service match is
+  found.
+- `check.js`'s Observed badge -- a collapsed details block built entirely
+  from the snapshot entry's own aggregate fields (`categoryBreakdown`,
+  `flaggedOwners`, `fingerprintingBreakdown`, `unmatchedDomains` -- see
+  `tracker_radar_snapshot.json`'s `schemaNote`), explained via a synced
+  copy of `tracker_category_glossary.js`. Deliberately not the per-domain
+  `matchedDomains` list popup.js's `renderObserved` shows -- that field
+  only exists on a live-capture profile, which this static snapshot isn't.
+
+No new network requests for history.js (still just the one relayed
+`text` field), one new request for check.js's Disclosed channel, zero new
+requests for its Observed channel (all from the already-fetched snapshot
+file).
