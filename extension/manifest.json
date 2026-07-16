@@ -2,15 +2,29 @@
   "manifest_version": 3,
   "name": "ClipPri",
   "version": "2.0.1",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyppSvdceXdXJFZQbFC09D5EcNsJv6ZoR6jZsZ9R8sYfQouqW6iPqO2ibllMRLwRMu6kdf8LmJdNG2TsxIJUYxHD9JgvhICjpG7B7MqEK+or4AlUqSs5ch8iadCUwV1BCh+Ck+ZZB8hTFErZ37D6qCwpBkn3zs+sqiaE+g4W0xmmOONx62C7AanzRlGz9BxyamVrlzyRDQrQo5OESQovdpKjsR+7FJ60viD++tXtaa7Zar1xHDRszF2kDyGm39HQfqiiAxA0WkjZu8ivEI7x1QOxhInh+m3RkP+zzYIsssV+tzDAbav+XfQB1DqpT0yVrKlYnUCkT+Kj3zvZz+tsRVwIDAQAB",
   "description": "Instant, on-device privacy policy scanning -- red flags, ToS;DR ratings, and an on-device AI summary. No account, no server.",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "webRequest"
+  ],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "service_worker": "background_entry.js",
+    "scripts": [
+      "background.js",
+      "tracker_radar_score.js",
+      "tracker_capture_background.js",
+      "tosdr_background_client.js",
+      "risk_model.js",
+      "consent_prompt_background.js",
+      "website_bridge_background.js"
+    ]
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
@@ -24,5 +38,24 @@
       "id": "clippri@example.invalid",
       "strict_min_version": "109.0"
     }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "consent_prompt_detector.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com/*",
+      "http://localhost:8000/*"
+    ]
   }
 }

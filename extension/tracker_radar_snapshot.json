@@ -1,0 +1,870 @@
+{
+  "schemaNote": "Each entry matches tracker_radar/README.md Output schema exactly (site, trackerCount, topCategories, riskScore, flaggedOwners, plus extra detail fields) -- see tracker_radar/score.py build_profile().",
+  "source": "tracker_radar/run.py against tracker_radar/config.SITES (curated milestone-1 list of ~20 sites)",
+  "capturedAt": "2026-07-15T11:08:54-04:00",
+  "regenerate": "python3 -m tracker_radar.run --out tracker_radar_results.json, then copy to extension/tracker_radar_snapshot.json (same generated-artifact pattern as classifier/dist/redflags-engine.js -- see classifier/README.md)",
+  "entries": [
+    {
+      "site": "https://www.google.com",
+      "trackerCount": 1,
+      "topCategories": [
+        "CDN",
+        "Embedded Content"
+      ],
+      "riskScore": 11.5,
+      "flaggedOwners": [
+        "Google LLC"
+      ],
+      "distinctOwnerCount": 1,
+      "highFingerprintingCount": 1,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 1
+      },
+      "categoryBreakdown": {
+        "CDN": 1,
+        "Embedded Content": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 1,
+        "totalThirdPartyDomains": 1,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.youtube.com",
+      "trackerCount": 5,
+      "topCategories": [
+        "CDN",
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Embedded Content",
+        "Online Payment"
+      ],
+      "riskScore": 36.8,
+      "flaggedOwners": [
+        "Google LLC"
+      ],
+      "distinctOwnerCount": 1,
+      "highFingerprintingCount": 3,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 1,
+        "medium": 0,
+        "high": 3
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 2,
+        "Advertising": 2,
+        "Online Payment": 1,
+        "CDN": 3,
+        "Embedded Content": 2
+      },
+      "unmatchedDomains": [
+        "googleapis.com"
+      ],
+      "coverage": {
+        "matchedCount": 4,
+        "totalThirdPartyDomains": 5,
+        "coverageRatio": 0.8,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "80% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.facebook.com",
+      "trackerCount": 2,
+      "topCategories": [
+        "Social - Share",
+        "Embedded Content",
+        "Social Network",
+        "Action Pixels",
+        "CDN"
+      ],
+      "riskScore": 11.5,
+      "flaggedOwners": [
+        "Facebook, Inc."
+      ],
+      "distinctOwnerCount": 1,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 1,
+        "medium": 1,
+        "high": 0
+      },
+      "categoryBreakdown": {
+        "Social - Share": 2,
+        "Action Pixels": 1,
+        "CDN": 1,
+        "Embedded Content": 2,
+        "Social Network": 2,
+        "Ad Motivated Tracking": 1,
+        "Advertising": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 2,
+        "totalThirdPartyDomains": 2,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.instagram.com",
+      "trackerCount": 2,
+      "topCategories": [
+        "CDN",
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics"
+      ],
+      "riskScore": 11.5,
+      "flaggedOwners": [
+        "Facebook, Inc."
+      ],
+      "distinctOwnerCount": 1,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 1,
+        "medium": 1,
+        "high": 0
+      },
+      "categoryBreakdown": {
+        "CDN": 1,
+        "Ad Motivated Tracking": 1,
+        "Advertising": 1,
+        "Ad Fraud": 1,
+        "Analytics": 1,
+        "Audience Measurement": 1,
+        "Federated Login": 1,
+        "Social - Comment": 1,
+        "Social - Share": 1,
+        "Action Pixels": 1,
+        "Badge": 1,
+        "Embedded Content": 1,
+        "Social Network": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 2,
+        "totalThirdPartyDomains": 2,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.amazon.com",
+      "trackerCount": 42,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing",
+        "Audience Measurement"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Amazon Technologies, Inc.",
+        "Connatix",
+        "Google LLC",
+        "GumGum",
+        "Improve Digital BV",
+        "Kargo Global, Inc.",
+        "Magnite, Inc.",
+        "Online Media Solutions Ltd. dba Brightcom",
+        "PubMatic, Inc.",
+        "Taboola, Inc.",
+        "Yahoo Inc."
+      ],
+      "distinctOwnerCount": 38,
+      "highFingerprintingCount": 1,
+      "fingerprintingBreakdown": {
+        "none": 12,
+        "low": 17,
+        "medium": 12,
+        "high": 1
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 29,
+        "Advertising": 28,
+        "Third-Party Analytics Marketing": 11,
+        "Ad Fraud": 5,
+        "Analytics": 12,
+        "Federated Login": 2,
+        "Social - Share": 1,
+        "Embedded Content": 2,
+        "Audience Measurement": 11,
+        "Action Pixels": 4,
+        "CDN": 2
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 42,
+        "totalThirdPartyDomains": 42,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.reddit.com",
+      "trackerCount": 9,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "CDN",
+        "Analytics",
+        "Third-Party Analytics Marketing"
+      ],
+      "riskScore": 89.6,
+      "flaggedOwners": [
+        "Apple Inc.",
+        "Google LLC",
+        "Reddit Inc."
+      ],
+      "distinctOwnerCount": 4,
+      "highFingerprintingCount": 4,
+      "fingerprintingBreakdown": {
+        "none": 2,
+        "low": 1,
+        "medium": 2,
+        "high": 4
+      },
+      "categoryBreakdown": {
+        "CDN": 3,
+        "Ad Motivated Tracking": 5,
+        "Advertising": 4,
+        "Online Payment": 1,
+        "Analytics": 3,
+        "Audience Measurement": 1,
+        "Third-Party Analytics Marketing": 2,
+        "Tag Manager": 1,
+        "Embedded Content": 1,
+        "Action Pixels": 1,
+        "Ad Fraud": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 9,
+        "totalThirdPartyDomains": 9,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.wikipedia.org",
+      "trackerCount": 0,
+      "topCategories": [],
+      "riskScore": null,
+      "flaggedOwners": [],
+      "distinctOwnerCount": 0,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0
+      },
+      "categoryBreakdown": {},
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 0,
+        "totalThirdPartyDomains": 0,
+        "coverageRatio": null,
+        "lowCoverage": true,
+        "riskScoreWithheld": true,
+        "note": "No third-party requests were captured for this site. This could mean the site genuinely loads no third-party trackers, or that capture failed (blocked automation, a JS-heavy page that didn't finish loading, etc.) -- verify manually before concluding either way."
+      }
+    },
+    {
+      "site": "https://www.linkedin.com",
+      "trackerCount": 9,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Embedded Content",
+        "CDN",
+        "Ad Fraud"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Claritas LLC",
+        "Google LLC",
+        "Human Security, Inc.",
+        "Microsoft Corporation"
+      ],
+      "distinctOwnerCount": 6,
+      "highFingerprintingCount": 6,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 2,
+        "medium": 1,
+        "high": 6
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 5,
+        "Advertising": 5,
+        "Ad Fraud": 2,
+        "Action Pixels": 2,
+        "Embedded Content": 3,
+        "Third-Party Analytics Marketing": 1,
+        "Analytics": 2,
+        "Audience Measurement": 2,
+        "Federated Login": 1,
+        "Social - Comment": 1,
+        "Social - Share": 1,
+        "Badge": 1,
+        "Social Network": 1,
+        "Online Payment": 1,
+        "CDN": 3
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 9,
+        "totalThirdPartyDomains": 9,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.spotify.com",
+      "trackerCount": 12,
+      "topCategories": [
+        "Embedded Content",
+        "Advertising",
+        "Ad Motivated Tracking",
+        "Analytics",
+        "Audience Measurement"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Google LLC",
+        "OneTrust LLC",
+        "Spotify AB"
+      ],
+      "distinctOwnerCount": 5,
+      "highFingerprintingCount": 4,
+      "fingerprintingBreakdown": {
+        "none": 2,
+        "low": 3,
+        "medium": 2,
+        "high": 4
+      },
+      "categoryBreakdown": {
+        "Embedded Content": 4,
+        "Non-Tracking": 2,
+        "Consent Management Platform": 2,
+        "Ad Motivated Tracking": 3,
+        "Advertising": 4,
+        "Analytics": 3,
+        "Audience Measurement": 3,
+        "Third-Party Analytics Marketing": 2,
+        "Online Payment": 1,
+        "CDN": 3,
+        "Tag Manager": 1
+      },
+      "unmatchedDomains": [
+        "fastly-insights.com"
+      ],
+      "coverage": {
+        "matchedCount": 11,
+        "totalThirdPartyDomains": 12,
+        "coverageRatio": 0.92,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "92% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.netflix.com",
+      "trackerCount": 21,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Embedded Content",
+        "Action Pixels"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Facebook, Inc.",
+        "Google LLC",
+        "Magnite, Inc.",
+        "Snap Inc."
+      ],
+      "distinctOwnerCount": 9,
+      "highFingerprintingCount": 3,
+      "fingerprintingBreakdown": {
+        "none": 4,
+        "low": 7,
+        "medium": 4,
+        "high": 3
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 12,
+        "Advertising": 11,
+        "Ad Fraud": 2,
+        "Analytics": 5,
+        "Audience Measurement": 3,
+        "Federated Login": 2,
+        "Social - Comment": 2,
+        "Social - Share": 2,
+        "Action Pixels": 4,
+        "Badge": 2,
+        "Embedded Content": 5,
+        "Social Network": 3,
+        "Online Payment": 1,
+        "CDN": 2,
+        "Third-Party Analytics Marketing": 2,
+        "Tag Manager": 1,
+        "Non-Tracking": 1,
+        "Consent Management Platform": 1
+      },
+      "unmatchedDomains": [
+        "nflxext.com",
+        "nflximg.net",
+        "nflxso.net"
+      ],
+      "coverage": {
+        "matchedCount": 18,
+        "totalThirdPartyDomains": 21,
+        "coverageRatio": 0.86,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "86% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.nytimes.com",
+      "trackerCount": 77,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Adform A/S",
+        "Amazon Technologies, Inc.",
+        "Chartbeat",
+        "Crimtan Holdings Ltd",
+        "Datadog, Inc.",
+        "Demandbase, Inc.",
+        "DoubleVerify",
+        "Google LLC",
+        "Kargo Global, Inc.",
+        "LiveRamp Holdings, Inc.",
+        "Magnite, Inc.",
+        "McCann Disciplines Ltd.",
+        "Pickaxe LLC",
+        "PubMatic, Inc.",
+        "Yahoo Inc."
+      ],
+      "distinctOwnerCount": 59,
+      "highFingerprintingCount": 5,
+      "fingerprintingBreakdown": {
+        "none": 23,
+        "low": 31,
+        "medium": 14,
+        "high": 5
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 53,
+        "Advertising": 53,
+        "Ad Fraud": 11,
+        "Third-Party Analytics Marketing": 18,
+        "Audience Measurement": 19,
+        "Analytics": 22,
+        "Action Pixels": 4,
+        "Obscure Ownership": 1,
+        "Online Payment": 1,
+        "CDN": 2,
+        "Tag Manager": 1,
+        "Embedded Content": 3,
+        "Social - Share": 1,
+        "Social Network": 1,
+        "Consent Management Platform": 1,
+        "Federated Login": 1
+      },
+      "unmatchedDomains": [
+        "googleapis.com",
+        "nyt.com",
+        "smartadhi.com",
+        "theathletic.com"
+      ],
+      "coverage": {
+        "matchedCount": 73,
+        "totalThirdPartyDomains": 77,
+        "coverageRatio": 0.95,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "95% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.x.com",
+      "trackerCount": 5,
+      "topCategories": [
+        "CDN",
+        "Embedded Content",
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Social - Comment"
+      ],
+      "riskScore": 58.0,
+      "flaggedOwners": [
+        "Apple Inc.",
+        "Google LLC",
+        "Twitter, Inc."
+      ],
+      "distinctOwnerCount": 3,
+      "highFingerprintingCount": 3,
+      "fingerprintingBreakdown": {
+        "none": 1,
+        "low": 0,
+        "medium": 1,
+        "high": 3
+      },
+      "categoryBreakdown": {
+        "CDN": 4,
+        "Ad Motivated Tracking": 2,
+        "Advertising": 2,
+        "Online Payment": 1,
+        "Embedded Content": 3,
+        "Social - Comment": 2,
+        "Social - Share": 2,
+        "Social Network": 2,
+        "Analytics": 1,
+        "Federated Login": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 5,
+        "totalThirdPartyDomains": 5,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.walmart.com",
+      "trackerCount": 11,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics",
+        "Third-Party Analytics Marketing"
+      ],
+      "riskScore": 94.5,
+      "flaggedOwners": [
+        "Google LLC",
+        "Human Security, Inc.",
+        "Integral Ad Science, Inc."
+      ],
+      "distinctOwnerCount": 5,
+      "highFingerprintingCount": 5,
+      "fingerprintingBreakdown": {
+        "none": 2,
+        "low": 1,
+        "medium": 0,
+        "high": 5
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 4,
+        "Advertising": 4,
+        "Ad Fraud": 1,
+        "Analytics": 1,
+        "Third-Party Analytics Marketing": 1,
+        "Fraud Prevention": 1
+      },
+      "unmatchedDomains": [
+        "googleapis.com",
+        "wal.co",
+        "xlgmedia.com"
+      ],
+      "coverage": {
+        "matchedCount": 8,
+        "totalThirdPartyDomains": 11,
+        "coverageRatio": 0.73,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "73% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.espn.com",
+      "trackerCount": 32,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Amazon Technologies, Inc.",
+        "Google LLC",
+        "ID5 Technology Ltd",
+        "Intimate Merger, Inc.",
+        "Kargo Global, Inc.",
+        "Magnite, Inc.",
+        "OneTrust LLC",
+        "Prospect One",
+        "PubMatic, Inc.",
+        "TMT Digital Inc.",
+        "The Walt Disney Company",
+        "Yahoo Inc."
+      ],
+      "distinctOwnerCount": 22,
+      "highFingerprintingCount": 5,
+      "fingerprintingBreakdown": {
+        "none": 2,
+        "low": 13,
+        "medium": 12,
+        "high": 5
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 21,
+        "Advertising": 21,
+        "Analytics": 7,
+        "Embedded Content": 2,
+        "Non-Tracking": 1,
+        "Consent Management Platform": 1,
+        "Third-Party Analytics Marketing": 5,
+        "Audience Measurement": 7,
+        "Online Payment": 1,
+        "CDN": 2,
+        "Tag Manager": 1,
+        "Action Pixels": 1,
+        "Ad Fraud": 3,
+        "Federated Login": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 32,
+        "totalThirdPartyDomains": 32,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://duckduckgo.com",
+      "trackerCount": 0,
+      "topCategories": [],
+      "riskScore": null,
+      "flaggedOwners": [],
+      "distinctOwnerCount": 0,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0
+      },
+      "categoryBreakdown": {},
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 0,
+        "totalThirdPartyDomains": 0,
+        "coverageRatio": null,
+        "lowCoverage": true,
+        "riskScoreWithheld": true,
+        "note": "No third-party requests were captured for this site. This could mean the site genuinely loads no third-party trackers, or that capture failed (blocked automation, a JS-heavy page that didn't finish loading, etc.) -- verify manually before concluding either way."
+      }
+    },
+    {
+      "site": "https://craigslist.org",
+      "trackerCount": 0,
+      "topCategories": [],
+      "riskScore": null,
+      "flaggedOwners": [],
+      "distinctOwnerCount": 0,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0
+      },
+      "categoryBreakdown": {},
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 0,
+        "totalThirdPartyDomains": 0,
+        "coverageRatio": null,
+        "lowCoverage": true,
+        "riskScoreWithheld": true,
+        "note": "No third-party requests were captured for this site. This could mean the site genuinely loads no third-party trackers, or that capture failed (blocked automation, a JS-heavy page that didn't finish loading, etc.) -- verify manually before concluding either way."
+      }
+    },
+    {
+      "site": "https://www.propublica.org",
+      "trackerCount": 12,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing",
+        "Audience Measurement"
+      ],
+      "riskScore": 100,
+      "flaggedOwners": [
+        "Convert Insights Inc",
+        "Google LLC",
+        "Parsely, Inc.",
+        "Pickaxe LLC"
+      ],
+      "distinctOwnerCount": 6,
+      "highFingerprintingCount": 4,
+      "fingerprintingBreakdown": {
+        "none": 1,
+        "low": 4,
+        "medium": 3,
+        "high": 4
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 5,
+        "Advertising": 5,
+        "Analytics": 5,
+        "Audience Measurement": 3,
+        "Third-Party Analytics Marketing": 4,
+        "Online Payment": 1,
+        "CDN": 3,
+        "Tag Manager": 1,
+        "Embedded Content": 3,
+        "Action Pixels": 1
+      },
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 12,
+        "totalThirdPartyDomains": 12,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://basecamp.com",
+      "trackerCount": 1,
+      "topCategories": [],
+      "riskScore": null,
+      "flaggedOwners": [],
+      "distinctOwnerCount": 0,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0
+      },
+      "categoryBreakdown": {},
+      "unmatchedDomains": [
+        "37signals.com"
+      ],
+      "coverage": {
+        "matchedCount": 0,
+        "totalThirdPartyDomains": 1,
+        "coverageRatio": 0.0,
+        "lowCoverage": true,
+        "riskScoreWithheld": true,
+        "note": "Captured 1 third-party domain(s) but none were found in the Tracker Radar dataset. Risk score withheld rather than defaulted to 0 -- this is a dataset coverage gap, not evidence of a clean site."
+      }
+    },
+    {
+      "site": "https://daringfireball.net",
+      "trackerCount": 1,
+      "topCategories": [],
+      "riskScore": 2.3,
+      "flaggedOwners": [],
+      "distinctOwnerCount": 1,
+      "highFingerprintingCount": 0,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 1,
+        "medium": 0,
+        "high": 0
+      },
+      "categoryBreakdown": {},
+      "unmatchedDomains": [],
+      "coverage": {
+        "matchedCount": 1,
+        "totalThirdPartyDomains": 1,
+        "coverageRatio": 1.0,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "100% of captured third-party domains matched the dataset."
+      }
+    },
+    {
+      "site": "https://www.metafilter.com",
+      "trackerCount": 11,
+      "topCategories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "CDN",
+        "Ad Fraud",
+        "Analytics"
+      ],
+      "riskScore": 98.6,
+      "flaggedOwners": [
+        "Google LLC"
+      ],
+      "distinctOwnerCount": 3,
+      "highFingerprintingCount": 5,
+      "fingerprintingBreakdown": {
+        "none": 0,
+        "low": 3,
+        "medium": 1,
+        "high": 5
+      },
+      "categoryBreakdown": {
+        "Ad Motivated Tracking": 6,
+        "Advertising": 6,
+        "Ad Fraud": 1,
+        "Analytics": 1,
+        "Online Payment": 1,
+        "CDN": 2,
+        "Embedded Content": 1
+      },
+      "unmatchedDomains": [
+        "cloudfront.net",
+        "googleapis.com"
+      ],
+      "coverage": {
+        "matchedCount": 9,
+        "totalThirdPartyDomains": 11,
+        "coverageRatio": 0.82,
+        "lowCoverage": false,
+        "riskScoreWithheld": false,
+        "note": "82% of captured third-party domains matched the dataset."
+      }
+    }
+  ]
+}

@@ -1,0 +1,1713 @@
+{
+  "schemaNote": "domain -> {owner: {name, displayName}, categories: [...], fingerprinting: 0-3}, same fields tracker_radar/score.py reads off a real dataset.TrackerRadarDataset entry.",
+  "source": "tracker_radar/export_extension_index.py against a partial-clone fetch of github.com/duckduckgo/tracker-radar (124 curated well-known tracker domains) + the original 6-domain test_score.py seed",
+  "howToExpand": "Run tracker_radar/fetch_dataset.sh (needs normal internet access) for the full ~20k-domain dataset, then python3 -m tracker_radar.export_extension_index --out extension/tracker_radar_dataset_index.json to regenerate this file at full scale.",
+  "generatedAt": "2026-07-15T18:03:07.325896+00:00",
+  "domains": {
+    "google-analytics.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 1
+    },
+    "doubleclick.net": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 3
+    },
+    "facebook.net": {
+      "owner": {
+        "name": "Facebook, Inc.",
+        "displayName": "Facebook",
+        "privacyPolicy": "https://www.facebook.com/privacy/explanation",
+        "url": "http://facebook.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics",
+        "Audience Measurement",
+        "Federated Login",
+        "Social - Comment",
+        "Social - Share",
+        "Action Pixels",
+        "Badge",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 2
+    },
+    "cloudflare.com": {
+      "owner": {
+        "name": "Cloudflare, Inc.",
+        "displayName": "Cloudflare"
+      },
+      "fingerprinting": 2,
+      "categories": [
+        "Analytics",
+        "CDN",
+        "Embedded Content"
+      ]
+    },
+    "jsdelivr.net": {
+      "owner": {
+        "name": "jsDelivr",
+        "displayName": "jsDelivr"
+      },
+      "fingerprinting": 0,
+      "categories": [
+        "CDN"
+      ]
+    },
+    "fullstory.com": {
+      "owner": {
+        "name": "FullStory",
+        "displayName": "FullStory"
+      },
+      "fingerprinting": 2,
+      "categories": [
+        "Analytics",
+        "Session Replay"
+      ]
+    },
+    "2mdn.net": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud"
+      ],
+      "fingerprinting": 1
+    },
+    "33across.com": {
+      "owner": {
+        "name": "33Across, Inc.",
+        "displayName": "33Across",
+        "privacyPolicy": "https://33across.com/privacy-policy/",
+        "url": "http://33across.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Action Pixels"
+      ],
+      "fingerprinting": 1
+    },
+    "addthis.com": {
+      "owner": {
+        "name": "Oracle Corporation",
+        "displayName": "Oracle",
+        "privacyPolicy": "https://www.oracle.com/legal/privacy/privacy-policy.html",
+        "url": "http://oracle.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Social - Share",
+        "Embedded Content"
+      ],
+      "fingerprinting": 0
+    },
+    "adform.net": {
+      "owner": {
+        "name": "Adform A/S",
+        "displayName": "Adform",
+        "privacyPolicy": "https://site.adform.com/privacy-center/overview/",
+        "url": "http://adform.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 2
+    },
+    "adjust.com": {
+      "owner": {
+        "name": "AppLovin Corporation",
+        "displayName": "AppLovin"
+      },
+      "categories": [],
+      "fingerprinting": 2
+    },
+    "adnxs.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "adobedtm.com": {
+      "owner": {
+        "name": "Adobe Inc.",
+        "displayName": "Adobe",
+        "privacyPolicy": "https://www.adobe.com/privacy/marketing-cloud.html",
+        "url": "http://adobe.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Tag Manager"
+      ],
+      "fingerprinting": 3
+    },
+    "adroll.com": {
+      "owner": {
+        "name": "AdRoll, Inc.",
+        "displayName": "AdRoll",
+        "privacyPolicy": "https://www.adroll.com/about/privacy",
+        "url": "http://adroll.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 2
+    },
+    "adsafeprotected.com": {
+      "owner": {
+        "name": "Integral Ad Science, Inc.",
+        "displayName": "Integral Ad Science",
+        "privacyPolicy": "https://integralads.com/privacy-policy/",
+        "url": "http://integralads.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud"
+      ],
+      "fingerprinting": 3
+    },
+    "adsrvr.org": {
+      "owner": {
+        "name": "The Trade Desk Inc",
+        "displayName": "The Trade Desk",
+        "privacyPolicy": "https://www.thetradedesk.com/general/privacy-policy",
+        "url": "http://thetradedesk.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "algolia.net": {
+      "owner": {
+        "name": "Algolia Inc",
+        "displayName": "Algolia"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "amazon-adsystem.com": {
+      "owner": {
+        "name": "Amazon Technologies, Inc.",
+        "displayName": "Amazon.com",
+        "privacyPolicy": "https://www.amazon.com/gp/help/customer/display.html?nodeId=468496",
+        "url": "http://amazon.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 2
+    },
+    "amplitude.com": {
+      "owner": {
+        "name": "Amplitude",
+        "displayName": "Amplitude",
+        "privacyPolicy": "https://amplitude.com/privacy",
+        "url": "http://amplitude.com"
+      },
+      "categories": [
+        "Analytics"
+      ],
+      "fingerprinting": 2
+    },
+    "appsflyer.com": {
+      "owner": {
+        "name": "AppsFlyer",
+        "displayName": "AppsFlyer"
+      },
+      "categories": [],
+      "fingerprinting": 3
+    },
+    "bidswitch.net": {
+      "owner": {
+        "name": "IPONWEB GmbH",
+        "displayName": "IPONWEB",
+        "privacyPolicy": "https://www.iponweb.com/privacy-policy/",
+        "url": "http://iponweb.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud"
+      ],
+      "fingerprinting": 0
+    },
+    "bing.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Action Pixels",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "bluekai.com": {
+      "owner": {
+        "name": "Oracle Corporation",
+        "displayName": "Oracle",
+        "privacyPolicy": "https://www.oracle.com/legal/privacy/privacy-policy.html",
+        "url": "http://oracle.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 0
+    },
+    "braintreegateway.com": {
+      "owner": {
+        "name": "PayPal, Inc.",
+        "displayName": "PayPal",
+        "privacyPolicy": "https://www.paypal.com/us/webapps/mpp/ua/privacy-full",
+        "url": "http://paypal.com"
+      },
+      "categories": [],
+      "fingerprinting": 1
+    },
+    "branch.io": {
+      "owner": {
+        "name": "Branch Metrics, Inc.",
+        "displayName": "Branch Metrics",
+        "privacyPolicy": "https://branch.io/policies/",
+        "url": "http://branch.io"
+      },
+      "categories": [
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 2
+    },
+    "bugsnag.com": {
+      "owner": {
+        "name": "Bugsnag Inc.",
+        "displayName": "Bugsnag"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "casalemedia.com": {
+      "owner": {
+        "name": "Index Exchange, Inc.",
+        "displayName": "Index Exchange",
+        "privacyPolicy": "http://casalemedia.com/",
+        "url": "http://casalemedia.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics"
+      ],
+      "fingerprinting": 1
+    },
+    "chartbeat.com": {
+      "owner": {
+        "name": "Chartbeat",
+        "displayName": "Chartbeat",
+        "privacyPolicy": "https://chartbeat.com/privacy/",
+        "url": "http://chartbeat.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 2
+    },
+    "cloudflareinsights.com": {
+      "owner": {
+        "name": "Cloudflare, Inc.",
+        "displayName": "Cloudflare",
+        "privacyPolicy": "https://www.cloudflare.com/privacypolicy/",
+        "url": "http://cloudflare.com"
+      },
+      "categories": [],
+      "fingerprinting": 1
+    },
+    "contextweb.com": {
+      "owner": {
+        "name": "Pulsepoint, Inc.",
+        "displayName": "Pulsepoint",
+        "privacyPolicy": "https://www.pulsepoint.com/privacy-policy-platform",
+        "url": "http://pulsepoint.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 1
+    },
+    "cookiebot.com": {
+      "owner": {
+        "name": "Usercentrics GmbH",
+        "displayName": "Usercentrics"
+      },
+      "categories": [
+        "Embedded Content",
+        "Non-Tracking",
+        "Consent Management Platform"
+      ],
+      "fingerprinting": 2
+    },
+    "cookielaw.org": {
+      "owner": {
+        "name": "OneTrust LLC",
+        "displayName": "OneTrust",
+        "privacyPolicy": "https://www.onetrust.com/privacy-notice",
+        "url": "http://onetrust.com"
+      },
+      "categories": [
+        "Embedded Content",
+        "Non-Tracking",
+        "Consent Management Platform"
+      ],
+      "fingerprinting": 2
+    },
+    "crazyegg.com": {
+      "owner": {
+        "name": "Crazy Egg, Inc.",
+        "displayName": "Crazy Egg",
+        "privacyPolicy": "https://www.crazyegg.com/privacy",
+        "url": "http://crazyegg.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Session Replay"
+      ],
+      "fingerprinting": 2
+    },
+    "criteo.com": {
+      "owner": {
+        "name": "Criteo SA",
+        "displayName": "Criteo",
+        "privacyPolicy": "https://www.criteo.com/privacy/",
+        "url": "http://criteo.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 1
+    },
+    "crwdcntrl.net": {
+      "owner": {
+        "name": "Lotame Solutions, Inc.",
+        "displayName": "Lotame Solutions",
+        "privacyPolicy": "https://www.lotame.com/about-lotame/privacy/lotame-corporate-websites-privacy-policy/",
+        "url": "http://lotame.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 1
+    },
+    "demdex.net": {
+      "owner": {
+        "name": "Adobe Inc.",
+        "displayName": "Adobe",
+        "privacyPolicy": "https://www.adobe.com/privacy/marketing-cloud.html",
+        "url": "http://adobe.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 1
+    },
+    "disqus.com": {
+      "owner": {
+        "name": "Disqus, Inc.",
+        "displayName": "Disqus",
+        "privacyPolicy": "https://help.disqus.com/terms-and-policies/disqus-privacy-policy",
+        "url": "http://disqus.com"
+      },
+      "categories": [
+        "Federated Login",
+        "Social - Comment",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "districtm.io": {
+      "owner": {
+        "name": "District M Inc.",
+        "displayName": "District M",
+        "privacyPolicy": "https://districtm.net/en/page/platforms-data-and-privacy-policy/",
+        "url": "http://districtm.net"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 0
+    },
+    "dotomi.com": {
+      "owner": {
+        "name": "Conversant LLC",
+        "displayName": "Conversant",
+        "privacyPolicy": "https://www.conversantmedia.com/legal/privacy",
+        "url": "http://conversantmedia.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "doubleverify.com": {
+      "owner": {
+        "name": "DoubleVerify",
+        "displayName": "DoubleVerify",
+        "privacyPolicy": "https://www.doubleverify.com/privacy/",
+        "url": "http://doubleverify.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud"
+      ],
+      "fingerprinting": 3
+    },
+    "drift.com": {
+      "owner": {
+        "name": "Drift.com, Inc.",
+        "displayName": "Drift.com"
+      },
+      "categories": [
+        "Embedded Content"
+      ],
+      "fingerprinting": 0
+    },
+    "eloqua.com": {
+      "owner": {
+        "name": "Oracle Corporation",
+        "displayName": "Oracle",
+        "privacyPolicy": "https://www.oracle.com/legal/privacy/privacy-policy.html",
+        "url": "http://oracle.com"
+      },
+      "categories": [
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 0
+    },
+    "facebook.com": {
+      "owner": {
+        "name": "Facebook, Inc.",
+        "displayName": "Facebook",
+        "privacyPolicy": "https://www.facebook.com/privacy/explanation",
+        "url": "http://facebook.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics",
+        "Audience Measurement",
+        "Federated Login",
+        "Social - Comment",
+        "Social - Share",
+        "Action Pixels",
+        "Badge",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 1
+    },
+    "fbcdn.net": {
+      "owner": {
+        "name": "Facebook, Inc.",
+        "displayName": "Facebook",
+        "privacyPolicy": "https://www.facebook.com/privacy/explanation",
+        "url": "http://facebook.com"
+      },
+      "categories": [
+        "Social - Share",
+        "Action Pixels",
+        "CDN",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 2
+    },
+    "fontawesome.com": {
+      "owner": {
+        "name": "Fonticons Inc",
+        "displayName": "Fonticons",
+        "privacyPolicy": "https://fontawesome.com/privacy",
+        "url": "http://fontawesome.com"
+      },
+      "categories": [
+        "CDN"
+      ],
+      "fingerprinting": 1
+    },
+    "freshworks.com": {
+      "owner": {
+        "name": "Freshworks Inc",
+        "displayName": "Freshworks"
+      },
+      "categories": [],
+      "fingerprinting": 2
+    },
+    "googleadservices.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "googleoptimize.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [],
+      "fingerprinting": 1
+    },
+    "googlesyndication.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 3
+    },
+    "googletagmanager.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Tag Manager"
+      ],
+      "fingerprinting": 2
+    },
+    "googletagservices.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Action Pixels"
+      ],
+      "fingerprinting": 2
+    },
+    "gravatar.com": {
+      "owner": {
+        "name": "Automattic, Inc.",
+        "displayName": "Automattic",
+        "privacyPolicy": "https://automattic.com/privacy/",
+        "url": "http://automattic.com"
+      },
+      "categories": [
+        "Federated Login",
+        "CDN",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 0
+    },
+    "gstatic.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 3
+    },
+    "gumgum.com": {
+      "owner": {
+        "name": "GumGum",
+        "displayName": "GumGum",
+        "privacyPolicy": "https://gumgum.com/privacy-policy",
+        "url": "http://gumgum.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 2
+    },
+    "hcaptcha.com": {
+      "owner": {
+        "name": "Intuition Machines, Inc.",
+        "displayName": "Intuition Machines"
+      },
+      "categories": [],
+      "fingerprinting": 3
+    },
+    "hotjar.com": {
+      "owner": {
+        "name": "Hotjar Ltd",
+        "displayName": "Hotjar",
+        "privacyPolicy": "https://www.hotjar.com/legal/policies/privacy",
+        "url": "http://hotjar.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "Session Replay"
+      ],
+      "fingerprinting": 2
+    },
+    "hubspot.com": {
+      "owner": {
+        "name": "HubSpot, Inc.",
+        "displayName": "HubSpot",
+        "privacyPolicy": "https://legal.hubspot.com/privacy-policy",
+        "url": "http://hubspot.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "instagram.com": {
+      "owner": {
+        "name": "Facebook, Inc.",
+        "displayName": "Facebook",
+        "privacyPolicy": "https://help.instagram.com/402411646841720",
+        "url": "http://instagram.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Social - Share",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 1
+    },
+    "intercom.io": {
+      "owner": {
+        "name": "Intercom",
+        "displayName": "Intercom",
+        "privacyPolicy": "https://www.intercom.com/terms-and-policies#terms",
+        "url": "http://intercom.com"
+      },
+      "categories": [
+        "Support Chat Widget"
+      ],
+      "fingerprinting": 1
+    },
+    "ipredictive.com": {
+      "owner": {
+        "name": "Adelphic, Inc.",
+        "displayName": "Adelphic",
+        "privacyPolicy": "https://my.ipredictive.com/optout/",
+        "url": "http://ipredictive.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "klaviyo.com": {
+      "owner": {
+        "name": "Klaviyo",
+        "displayName": "Klaviyo",
+        "privacyPolicy": "https://www.klaviyo.com/privacy",
+        "url": "http://klaviyo.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "krxd.net": {
+      "owner": {
+        "name": "Salesforce.com, Inc.",
+        "displayName": "Salesforce.com",
+        "privacyPolicy": "https://www.salesforce.com/company/privacy/",
+        "url": "http://salesforce.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 0
+    },
+    "licdn.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "CDN"
+      ],
+      "fingerprinting": 3
+    },
+    "lijit.com": {
+      "owner": {
+        "name": "Sovrn Holdings",
+        "displayName": "Sovrn Holdings",
+        "privacyPolicy": "https://www.sovrn.com/sovrn-legal-policies/",
+        "url": "http://sovrn.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Action Pixels"
+      ],
+      "fingerprinting": 1
+    },
+    "linkedin.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Social - Share",
+        "Action Pixels",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 1
+    },
+    "live.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "livechatinc.com": {
+      "owner": {
+        "name": "LiveChat Inc",
+        "displayName": "LiveChat",
+        "privacyPolicy": "https://www.livechatinc.com/legal/privacy-policy/",
+        "url": "http://livechatinc.com"
+      },
+      "categories": [
+        "Embedded Content",
+        "Support Chat Widget"
+      ],
+      "fingerprinting": 2
+    },
+    "lkqd.net": {
+      "owner": {
+        "name": "Nexstar Media Group",
+        "displayName": "Nexstar Media Group",
+        "privacyPolicy": "https://www.nexstardigital.com/privacy",
+        "url": "http://nexstardigital.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 0
+    },
+    "mailchimp.com": {
+      "owner": {
+        "name": "Intuit Inc.",
+        "displayName": "Intuit",
+        "privacyPolicy": "https://www.intuit.com/privacy/statement/",
+        "url": "http://intuit.com"
+      },
+      "categories": [
+        "Advertising",
+        "Third-Party Analytics Marketing",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "media.net": {
+      "owner": {
+        "name": "Media.net Advertising FZ-LLC",
+        "displayName": "Media.net Advertising",
+        "privacyPolicy": "https://www.media.net/en/privacy-policy",
+        "url": "http://media.net"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "microsoftonline.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "mixpanel.com": {
+      "owner": {
+        "name": "Mixpanel, Inc.",
+        "displayName": "Mixpanel",
+        "privacyPolicy": "https://mixpanel.com/privacy/",
+        "url": "http://mixpanel.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Action Pixels",
+        "Session Replay"
+      ],
+      "fingerprinting": 0
+    },
+    "moatads.com": {
+      "owner": {
+        "name": "Oracle Corporation",
+        "displayName": "Oracle",
+        "privacyPolicy": "https://www.oracle.com/legal/privacy/privacy-policy.html",
+        "url": "http://oracle.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Action Pixels"
+      ],
+      "fingerprinting": 0
+    },
+    "msn.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [],
+      "fingerprinting": 2
+    },
+    "newrelic.com": {
+      "owner": {
+        "name": "New Relic",
+        "displayName": "New Relic",
+        "privacyPolicy": "https://newrelic.com/privacy",
+        "url": "http://newrelic.com"
+      },
+      "categories": [
+        "Analytics"
+      ],
+      "fingerprinting": 2
+    },
+    "nr-data.net": {
+      "owner": {
+        "name": "New Relic",
+        "displayName": "New Relic",
+        "privacyPolicy": "https://newrelic.com/privacy",
+        "url": "http://newrelic.com"
+      },
+      "categories": [
+        "Analytics"
+      ],
+      "fingerprinting": 0
+    },
+    "office.com": {
+      "owner": {
+        "name": "Microsoft Corporation",
+        "displayName": "Microsoft",
+        "privacyPolicy": "https://privacy.microsoft.com/en-us/privacystatement",
+        "url": "http://microsoft.com"
+      },
+      "categories": [],
+      "fingerprinting": 2
+    },
+    "olark.com": {
+      "owner": {
+        "name": "Olark",
+        "displayName": "Olark",
+        "privacyPolicy": "https://www.olark.com/privacy-policy",
+        "url": "http://olark.com"
+      },
+      "categories": [
+        "Third-Party Analytics Marketing",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "omtrdc.net": {
+      "owner": {
+        "name": "Adobe Inc.",
+        "displayName": "Adobe",
+        "privacyPolicy": "https://www.adobe.com/privacy/marketing-cloud.html",
+        "url": "http://adobe.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 0
+    },
+    "onesignal.com": {
+      "owner": {
+        "name": "OneSignal",
+        "displayName": "OneSignal",
+        "privacyPolicy": "https://onesignal.com/privacy_policy",
+        "url": "http://onesignal.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Analytics",
+        "Third-Party Analytics Marketing",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "onetrust.com": {
+      "owner": {
+        "name": "OneTrust LLC",
+        "displayName": "OneTrust",
+        "privacyPolicy": "https://www.onetrust.com/privacy-notice",
+        "url": "http://onetrust.com"
+      },
+      "categories": [
+        "Embedded Content",
+        "Non-Tracking",
+        "Consent Management Platform"
+      ],
+      "fingerprinting": 1
+    },
+    "openx.net": {
+      "owner": {
+        "name": "OpenX Technologies Inc",
+        "displayName": "OpenX",
+        "privacyPolicy": "https://www.openx.com/legal/privacy-policy/",
+        "url": "http://openx.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 0
+    },
+    "optimizely.com": {
+      "owner": {
+        "name": "Optimizely, Inc.",
+        "displayName": "Optimizely",
+        "privacyPolicy": "https://www.optimizely.com/privacy/",
+        "url": "http://optimizely.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Action Pixels"
+      ],
+      "fingerprinting": 1
+    },
+    "outbrain.com": {
+      "owner": {
+        "name": "Outbrain",
+        "displayName": "Outbrain",
+        "privacyPolicy": "https://www.outbrain.com/legal/privacy",
+        "url": "http://outbrain.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 2
+    },
+    "pardot.com": {
+      "owner": {
+        "name": "Salesforce.com, Inc.",
+        "displayName": "Salesforce.com",
+        "privacyPolicy": "https://www.salesforce.com/company/privacy/",
+        "url": "http://salesforce.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Embedded Content"
+      ],
+      "fingerprinting": 1
+    },
+    "paypal.com": {
+      "owner": {
+        "name": "PayPal, Inc.",
+        "displayName": "PayPal",
+        "privacyPolicy": "https://www.paypal.com/us/webapps/mpp/ua/privacy-full",
+        "url": "http://paypal.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "SSO",
+        "Online Payment",
+        "Badge",
+        "Embedded Content"
+      ],
+      "fingerprinting": 3
+    },
+    "pinterest.com": {
+      "owner": {
+        "name": "Pinterest, Inc.",
+        "displayName": "Pinterest",
+        "privacyPolicy": "https://policy.pinterest.com/en/privacy-policy",
+        "url": "http://pinterest.com"
+      },
+      "categories": [
+        "Social - Share",
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 1
+    },
+    "pubmatic.com": {
+      "owner": {
+        "name": "PubMatic, Inc.",
+        "displayName": "PubMatic",
+        "privacyPolicy": "https://pubmatic.com/legal/privacy-policy/",
+        "url": "http://pubmatic.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 2
+    },
+    "qualtrics.com": {
+      "owner": {
+        "name": "Silver Lake Technology Management, L.L.C.",
+        "displayName": "Silver Lake"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Embedded Content",
+        "Session Replay"
+      ],
+      "fingerprinting": 2
+    },
+    "quantserve.com": {
+      "owner": {
+        "name": "Quantcast Corporation",
+        "displayName": "Quantcast",
+        "privacyPolicy": "http://www.quantcast.com/privacy",
+        "url": "http://quantcast.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 1
+    },
+    "recaptcha.net": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "reddit.com": {
+      "owner": {
+        "name": "Reddit Inc.",
+        "displayName": "Reddit",
+        "privacyPolicy": "https://www.redditinc.com/policies/privacy-policy",
+        "url": "http://redditinc.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing",
+        "Social - Comment",
+        "Social - Share",
+        "Badge",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 1
+    },
+    "redditstatic.com": {
+      "owner": {
+        "name": "Reddit Inc.",
+        "displayName": "Reddit",
+        "privacyPolicy": "https://www.redditinc.com/policies/privacy-policy",
+        "url": "http://redditinc.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Analytics",
+        "Action Pixels"
+      ],
+      "fingerprinting": 2
+    },
+    "rlcdn.com": {
+      "owner": {
+        "name": "LiveRamp Holdings, Inc.",
+        "displayName": "LiveRamp"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Ad Fraud",
+        "Analytics",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 1
+    },
+    "rubiconproject.com": {
+      "owner": {
+        "name": "Magnite, Inc.",
+        "displayName": "Magnite",
+        "privacyPolicy": "https://www.magnite.com/legal/advertising-technology-privacy-policy",
+        "url": "http://magnite.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 2
+    },
+    "sc-static.net": {
+      "owner": {
+        "name": "Snap Inc.",
+        "displayName": "Snap"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Action Pixels",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "scorecardresearch.com": {
+      "owner": {
+        "name": "comScore, Inc",
+        "displayName": "comScore",
+        "privacyPolicy": "https://www.comscore.com/About/Privacy-Policy",
+        "url": "http://comscore.com"
+      },
+      "categories": [
+        "Analytics",
+        "Audience Measurement"
+      ],
+      "fingerprinting": 1
+    },
+    "segment.io": {
+      "owner": {
+        "name": "Segment.io, Inc.",
+        "displayName": "Segment.io",
+        "privacyPolicy": "https://segment.io/privacy",
+        "url": "http://segment.io"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing",
+        "Action Pixels"
+      ],
+      "fingerprinting": 1
+    },
+    "sentry.io": {
+      "owner": {
+        "name": "Functional Software, Inc.",
+        "displayName": "Functional Software",
+        "privacyPolicy": "https://sentry.io/privacy/",
+        "url": "http://sentry.io"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "serving-sys.com": {
+      "owner": {
+        "name": "Amazon Technologies, Inc.",
+        "displayName": "Amazon.com",
+        "privacyPolicy": "https://www.amazon.com/gp/help/customer/display.html?nodeId=468496",
+        "url": "http://amazon.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 0
+    },
+    "sharethis.com": {
+      "owner": {
+        "name": "ShareThis, Inc",
+        "displayName": "ShareThis",
+        "privacyPolicy": "https://www.sharethis.com/privacy/",
+        "url": "http://sharethis.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Third-Party Analytics Marketing",
+        "Social - Share",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "sharethrough.com": {
+      "owner": {
+        "name": "Sharethrough, Inc.",
+        "displayName": "Sharethrough",
+        "privacyPolicy": "https://platform-cdn.sharethrough.com/privacy-policy",
+        "url": "http://sharethrough.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "simpli.fi": {
+      "owner": {
+        "name": "Simplifi Holdings Inc.",
+        "displayName": "Simplifi Holdings",
+        "privacyPolicy": "https://www.simpli.fi/site-privacy-policy2/",
+        "url": "http://simpli.fi"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics"
+      ],
+      "fingerprinting": 0
+    },
+    "smartadserver.com": {
+      "owner": {
+        "name": "Smartadserver S.A.S",
+        "displayName": "Smartadserver",
+        "privacyPolicy": "http://smartadserver.com/company/privacy-policy/",
+        "url": "http://smartadserver.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "snapchat.com": {
+      "owner": {
+        "name": "Snap Inc.",
+        "displayName": "Snap"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Action Pixels",
+        "Social Network"
+      ],
+      "fingerprinting": 1
+    },
+    "sovrn.com": {
+      "owner": {
+        "name": "Sovrn Holdings",
+        "displayName": "Sovrn Holdings",
+        "privacyPolicy": "https://www.sovrn.com/sovrn-legal-policies/",
+        "url": "http://sovrn.com"
+      },
+      "categories": [],
+      "fingerprinting": 1
+    },
+    "spotify.com": {
+      "owner": {
+        "name": "Spotify AB",
+        "displayName": "Spotify"
+      },
+      "categories": [
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 0
+    },
+    "spotxchange.com": {
+      "owner": {
+        "name": "SpotX, Inc.",
+        "displayName": "SpotX",
+        "privacyPolicy": "https://www.spotx.tv/privacy-policy/",
+        "url": "http://spotx.tv"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics"
+      ],
+      "fingerprinting": 0
+    },
+    "springserve.com": {
+      "owner": {
+        "name": "SpringServe, LLC",
+        "displayName": "SpringServe",
+        "privacyPolicy": "https://springserve.com/privacy-policy/",
+        "url": "http://springserve.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 2
+    },
+    "stripe.com": {
+      "owner": {
+        "name": "Stripe, Inc",
+        "displayName": "Stripe",
+        "privacyPolicy": "https://stripe.com/privacy",
+        "url": "http://stripe.com"
+      },
+      "categories": [
+        "Online Payment",
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "surveymonkey.com": {
+      "owner": {
+        "name": "Momentive Inc.",
+        "displayName": "Momentive"
+      },
+      "categories": [],
+      "fingerprinting": 0
+    },
+    "taboola.com": {
+      "owner": {
+        "name": "Taboola, Inc.",
+        "displayName": "Taboola"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Audience Measurement",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 2
+    },
+    "tapad.com": {
+      "owner": {
+        "name": "Tapad, Inc.",
+        "displayName": "Tapad",
+        "privacyPolicy": "https://www.tapad.com/privacy-policy",
+        "url": "http://tapad.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Third-Party Analytics Marketing"
+      ],
+      "fingerprinting": 0
+    },
+    "tawk.to": {
+      "owner": {},
+      "categories": [],
+      "fingerprinting": 2
+    },
+    "tiktok.com": {
+      "owner": {
+        "name": "ByteDance Ltd.",
+        "displayName": "ByteDance"
+      },
+      "categories": [],
+      "fingerprinting": 1
+    },
+    "tremorhub.com": {
+      "owner": {
+        "name": "Telaria",
+        "displayName": "Telaria",
+        "privacyPolicy": "https://telaria.com/privacy-policy/",
+        "url": "http://telaria.com"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 0
+    },
+    "trustarc.com": {
+      "owner": {
+        "name": "TrustArc Inc.",
+        "displayName": "TrustArc",
+        "privacyPolicy": "https://www.trustarc.com/privacy-policy/",
+        "url": "http://trustarc.com"
+      },
+      "categories": [
+        "Badge"
+      ],
+      "fingerprinting": 1
+    },
+    "turn.com": {
+      "owner": {
+        "name": "Amobee, Inc",
+        "displayName": "Amobee"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising"
+      ],
+      "fingerprinting": 1
+    },
+    "twimg.com": {
+      "owner": {
+        "name": "Twitter, Inc.",
+        "displayName": "Twitter",
+        "privacyPolicy": "https://twitter.com/en/privacy",
+        "url": "http://twitter.com"
+      },
+      "categories": [
+        "Social - Comment",
+        "Social - Share",
+        "CDN",
+        "Embedded Content",
+        "Social Network"
+      ],
+      "fingerprinting": 0
+    },
+    "typeform.com": {
+      "owner": {
+        "name": "Typeform S.L.",
+        "displayName": "Typeform"
+      },
+      "categories": [],
+      "fingerprinting": 2
+    },
+    "typekit.net": {
+      "owner": {
+        "name": "Adobe Inc.",
+        "displayName": "Adobe",
+        "privacyPolicy": "https://www.adobe.com/privacy/marketing-cloud.html",
+        "url": "http://adobe.com"
+      },
+      "categories": [
+        "CDN"
+      ],
+      "fingerprinting": 1
+    },
+    "vimeo.com": {
+      "owner": {
+        "name": "Vimeo, LLC",
+        "displayName": "Vimeo",
+        "privacyPolicy": "https://vimeo.com/privacy",
+        "url": "http://vimeo.com"
+      },
+      "categories": [
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 1
+    },
+    "wistia.com": {
+      "owner": {
+        "name": "Wistia",
+        "displayName": "Wistia",
+        "privacyPolicy": "https://wistia.com/privacy",
+        "url": "http://wistia.com"
+      },
+      "categories": [
+        "Analytics",
+        "Third-Party Analytics Marketing",
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 2
+    },
+    "x.com": {
+      "owner": {
+        "name": "Twitter, Inc.",
+        "displayName": "Twitter",
+        "privacyPolicy": "https://twitter.com/en/privacy",
+        "url": "http://twitter.com"
+      },
+      "categories": [],
+      "fingerprinting": 1
+    },
+    "yahoo.com": {
+      "owner": {
+        "name": "Yahoo Inc.",
+        "displayName": "Verizon Media"
+      },
+      "categories": [
+        "Ad Motivated Tracking",
+        "Advertising",
+        "Analytics",
+        "Audience Measurement",
+        "Federated Login"
+      ],
+      "fingerprinting": 2
+    },
+    "ytimg.com": {
+      "owner": {
+        "name": "Google LLC",
+        "displayName": "Google",
+        "privacyPolicy": "https://policies.google.com/privacy?hl=en&gl=us",
+        "url": "http://google.com"
+      },
+      "categories": [
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 1
+    },
+    "zendesk.com": {
+      "owner": {
+        "name": "Zendesk, Inc.",
+        "displayName": "Zendesk",
+        "privacyPolicy": "https://www.zendesk.com/company/customers-partners/privacy-policy/",
+        "url": "http://zendesk.com"
+      },
+      "categories": [
+        "Analytics",
+        "Federated Login",
+        "CDN",
+        "Embedded Content"
+      ],
+      "fingerprinting": 1
+    }
+  }
+}

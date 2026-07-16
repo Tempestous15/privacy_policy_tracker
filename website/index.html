@@ -12,6 +12,8 @@
             <h1>ClipPri</h1>
             <nav>
                 <a href="index.html">Home</a>
+                <a href="check.html">Check a URL</a>
+                <a href="history.html">Scan History</a>
                 <a href="mission.html">Mission</a>
                 <a href="privacy.html">Privacy</a>
             </nav>
@@ -20,17 +22,40 @@
     <main>
         <div class="container">
             <div class="hero">
-                <h2>Know what a site does with your data before you agree to anything</h2>
+                <h2>What a site claims, and what it actually does — before you agree to anything</h2>
                 <p>
-                    ClipPri is a browser extension that reads a site's privacy policy for you —
-                    instantly, entirely on your device. No account, no server, nothing you read ever leaves
-                    your browser.
+                    ClipPri is a browser extension that reads a site's privacy policy <em>and</em> checks
+                    what it's actually doing on your device — instantly, entirely on your device. No
+                    account, no server, nothing you read or detect ever leaves your browser.
                 </p>
                 <div class="hero-actions">
                     <a class="btn btn-primary" href="https://github.com/Tempestous15/privacy_policy_tracker/tree/main/extension" target="_blank" rel="noopener">Get the extension</a>
                     <a class="btn btn-secondary" href="mission.html">Learn more</a>
                 </div>
             </div>
+
+            <div class="channel-compare">
+                <div class="channel-compare-card">
+                    <h3>Disclosed</h3>
+                    <p class="channel-compare-sub">What the policy says</p>
+                    <p>Red flags, ToS;DR ratings, and an on-device summary — all readings of the privacy
+                    policy the site published.</p>
+                </div>
+                <div class="channel-compare-divider" aria-hidden="true">
+                    <span>vs.</span>
+                </div>
+                <div class="channel-compare-card">
+                    <h3>Observed</h3>
+                    <p class="channel-compare-sub">What we can technically detect</p>
+                    <p>Third-party trackers actually contacted on the site, checked against DuckDuckGo's
+                    Tracker Radar dataset — independent of anything the policy claims.</p>
+                </div>
+            </div>
+            <p class="channel-compare-note">
+                We show these side by side, never blended into one score. A browser extension can't see a
+                company's internal data handling — only what it discloses and what's technically
+                observable. When the two disagree, we flag that first.
+            </p>
 
             <div class="features">
                 <div class="feature-card">
@@ -44,6 +69,10 @@
                 <div class="feature-card">
                     <h3>🧠 On-device AI summary</h3>
                     <p>A small language model runs locally in your browser (via WebGPU) to generate a plain-English summary — no policy text is ever sent to us or anyone else.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📡 Live tracker detection</h3>
+                    <p>Watches which third-party domains a site actually contacts as you browse, and checks them against a bundled Tracker Radar index — categorized in plain language, not just a score.</p>
                 </div>
             </div>
         </div>

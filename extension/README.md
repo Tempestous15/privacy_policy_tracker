@@ -31,6 +31,13 @@ summary (WebLLM, via WebGPU) is effectively Chrome/Chromium-only right now
   directly for community-reviewed ratings on well-known sites. The only
   network request this extension makes to a third party.
 - **`storage.js`** -- saved sites, kept in `chrome.storage.local` only.
+- **`tracker_radar_client.js`** -- looks up the current domain in
+  `tracker_radar_snapshot.json` (a bundled, point-in-time capture from
+  `../tracker_radar/`, copied here the same way `redflags-engine.js` is --
+  see "Two-channel risk model" below). No network call.
+- **`risk_model.js`** -- pure functions that compare the Disclosed
+  (ToS;DR) and Observed (Tracker Radar) channels and decide whether they
+  disagree. Never combines them into one score -- see below.
 - **`webllm-client.js`** / **`background.js`** -- an on-device LLM
   ([WebLLM](https://github.com/mlc-ai/web-llm), via WebGPU) that generates
   the plain-English summary. The model runs in the MV3 service worker
@@ -77,3 +84,316 @@ Under a software/virtualized GPU (e.g. SwiftShader, as seen in some headless
 CI environments) the model downloads and loads correctly but shader
 compilation fails -- that reflects the environment's actual GPU, not a bug,
 and isn't something the extension can detect or work around.
+
+## Two-channel risk model: Disclosed vs. Observed (`siteBehaviorIntegration` branch)
+
+The popup now shows a site's result as two clearly separate channels,
+never merged into one score:
+
+- **Disclosed -- what the policy says.** The existing classifier
+  (`redflags-engine.js`) and ToS;DR (`tosdr.js`) results, both readings of
+  the site's stated privacy policy.
+- **Observed -- what we can technically detect.** `tracker_radar_client.js`
+  looks up third-party trackers actually captured on the site (see
+  `../tracker_radar/`), independent of anything the policy claims.
+
+`risk_model.js` is the only place that compares the two, and it
+deliberately never blends them into a single badge/number: a browser
+extension can't see a company's actual internal data handling, only its
+public disclosures and technically observable network behavior, and a
+combined score would overstate how much either signal alone can support.
+When the two channels' levels are far enough apart to be a real mismatch
+(not just adjacent buckets), `popup.js` shows a banner above both sections
+-- "Disclosed and observed signals disagree" -- so that's the first thing
+a user sees, before either channel's own detail. When they agree, or
+either side has no data for that domain, the banner stays silent rather
+than asserting something it can't support.
+
+Wording matters here: Observed-channel copy always says things like
+"detected in a scan on \<date\>" or "we can technically detect", never
+"what this site does with your data" -- that phrasing would claim
+visibility the extension doesn't have.
+
+### Why Observed is a snapshot, not a live scan
+
+`tracker_radar/` captures third-party trackers by driving a real headless
+Chromium via Playwright, which can't run inside a browser-extension popup
+or content script. So `tracker_radar_snapshot.json` in this directory is a
+bundled, point-in-time capture for `tracker_radar/config.SITES` (currently
+~20 curated sites) -- a generated artifact copied here the same way
+`classifier/dist/redflags-engine.js` is (see `../classifier/README.md`).
+Sites outside that curated list show "This site isn't in our current
+tracker scan yet" in the Observed section rather than silently omitting it
+or implying a clean result.
+
+To regenerate the snapshot after re-running the Tracker Radar milestone:
+
+```bash
+python3 -m tracker_radar.run --out tracker_radar_results.json   # from repo root
+cp tracker_radar_results.json extension/tracker_radar_snapshot.json
+# then wrap it with the {schemaNote, source, capturedAt, entries} metadata
+# tracker_radar_client.js expects -- see that file's header comment.
+```
+
+Broadening Observed coverage to arbitrary sites (not just the curated
+list) would mean live in-browser detection via `chrome.webRequest` plus a
+bundled subset of the Tracker Radar dataset -- a real follow-on scope
+(new permission, porting `tracker_radar/score.py`'s rule to JS, deciding
+how to trim a 20k+ file dataset), not something this branch attempts.
+
+### Testing this branch locally
+
+1. Load the extension as usual (see "Load it for testing" above) from
+   this branch's `extension/` directory.
+2. Visit and check sites already in `tracker_radar_snapshot.json` to see
+   both channels populated -- e.g. `google.com`, `amazon.com`,
+   `duckduckgo.com`, `reddit.com`, `nytimes.com` (see
+   `tracker_radar/config.py` for the full curated list).
+3. Visit a site *not* in that list (e.g. any small/unlisted site) to
+   confirm the Observed section degrades to "not in our current tracker
+   scan yet" without breaking the Disclosed section above it.
+4. To see the disagreement banner fire, compare a site ToS;DR rates poorly
+   (C/D/E) against a low observed tracker count, or vice versa -- exact
+   pairings will drift as both datasets are refreshed, so there's no fixed
+   example that's guaranteed to disagree forever.
+5. To check partial-failure resilience without waiting for a real outage:
+   temporarily break the ToS;DR fetch (e.g. change `TOSDR_API_BASE` in
+   `tosdr.js` to an invalid host) and confirm the Observed section still
+   renders fully. Revert before committing.
+
+### Timing the warning (popUpTiming branch)
+
+Everything above only ever surfaces information when the user clicks
+something -- the toolbar icon, "Check this site." That's fine for
+research, but it misses the moment that actually matters: right when a
+site is asking the user to accept cookies, agree to a privacy policy, or
+check a ToS consent box. By the time someone opens the popup on their own
+initiative, they've often already clicked "Accept."
+
+`consent_prompt_detector.js` (new) is a content script -- injected
+automatically on every page via `manifest.json`'s new `content_scripts`
+entry, a real behavior change from the rest of the extension (see "A note
+on always-on detection" below). It watches for:
+
+- Known Consent Management Platform markup (OneTrust, Cookiebot, Didomi,
+  Quantcast/IAB TCF, Usercentrics, TrustArc, Osano, Termly, and others) --
+  high-confidence, since a handful of vendors cover a large share of real
+  sites.
+- A generic fallback: visible text matching cookie/consent/GDPR language,
+  an actionable button (Accept/Agree/Allow/...), gated on a positioning or
+  container-naming signal so an unrelated "Accept" button elsewhere on the
+  page doesn't false-positive.
+- Sign-up/account-creation consent checkboxes ("I agree to the Privacy
+  Policy...").
+
+On a match, it asks `consent_prompt_background.js` (new) whether this site
+is worth interrupting the user about, using two signals that are already
+cheap/available -- **not** a full policy-text fetch+scan, which would mean
+an automatic page-fetch on every single site visited, a much bigger
+passive-monitoring step than watching for a banner shape:
+
+- **Observed**: whatever `tracker_capture_background.js` has already
+  captured live for that tab (zero extra cost -- it's already running).
+- **Disclosed**: a single ToS;DR rating lookup (`tosdr_background_client.js`,
+  new -- a small standalone client since `tosdr.js` is popup-only and
+  declares `window.TosdrClient`, and `window` doesn't exist in the service
+  worker).
+
+It warns if either signal alone is high-risk, or (reusing
+`risk_model.js`'s `compareChannels`) if the two disagree -- the same
+"surface a mismatch first" principle as the popup's banner, just now at
+the moment it can actually change what someone's about to click. When it
+warns, `consent_prompt_detector.js` renders a small in-page banner next to
+the detected prompt (dismissible, not blocking, no page content read
+beyond the prompt-shaped DOM it already found) and the toolbar icon gets a
+red "!" badge, cleared automatically on the next page navigation.
+
+`risk_model.js` changed its export from `window.SiteRiskModel` to
+`self.SiteRiskModel` so it works unmodified in both the popup (where
+`self === window`) and the service worker (which has no `window` at all) --
+this is the only change to that file's actual logic (none).
+
+**A note on always-on detection.** Every other capability in this
+extension is strictly opt-in-per-click ("no background monitoring" is
+stated outright in the old `browser-extension/README.md`). This content
+script is a genuine exception: it runs on every page automatically to
+watch for consent-prompt shapes. It never reads page content beyond that
+(no page text generally, no form values, nothing sent anywhere -- the only
+network calls stay exactly what they were: one ToS;DR request per
+evaluation, no new endpoints), but it's a real behavior change worth being
+upfront about, and `privacy.html` should be updated to disclose it before
+this ships broadly (not yet done as part of this branch -- flagging it
+rather than guessing at the right wording).
+
+**No new permissions were needed** for any of this -- `content_scripts`
+only requires the `host_permissions` already declared, and the toolbar
+badge only requires the already-declared `action` key.
+
+### Existing files touched, and why
+
+This integration prefers new files (`tracker_radar_client.js`,
+`risk_model.js`, `tracker_radar_snapshot.json`) over editing existing
+ones. Three existing, hand-authored files needed small additive edits to
+wire the new module into the popup's render logic:
+
+- **`popup.html`** -- two new `<script>` tags, nothing else changed.
+- **`popup.css`** -- one new block appended at the end of the file for the
+  channel headings and the disagreement banner; no existing rules touched.
+- **`popup.js`** -- two new render functions (`renderObserved`,
+  `renderChannelAgreementBanner`) added alongside the existing
+  `renderTosdr`/`renderClassifier`, and `renderSiteResult` gained a banner
+  container plus "Disclosed"/"Observed" headings around the
+  already-existing classifier/ToS;DR/AI-summary calls. No existing
+  function body was rewritten -- see the branch diff for the exact
+  (append-only, except that one function) change.
+
+All three files were last rewritten in commit `9fd2c0a` (WebGPU/Pyodide
+overhaul) -- the edits above were kept intentionally small for that
+reason.
+
+**popUpTiming's touches to existing files**, all small and additive:
+
+- **`manifest.json`** -- added a `content_scripts` entry (new:
+  `consent_prompt_detector.js`, runs on every page) and extended both
+  background script lists with the three new background-side files. No
+  new permissions.
+- **`background_entry.js`** -- three more `importScripts()` calls, same
+  pattern as the previous round; comment updated to explain the new
+  dependency order.
+- **`risk_model.js`** -- exports via `self.SiteRiskModel` instead of
+  `window.SiteRiskModel` (one line) so the background service worker can
+  reuse it too. No logic changed.
+- **`tracker_capture_background.js`** -- the existing `main_frame`
+  handler (already responsible for resetting a tab's capture on a new
+  page load) now also clears that tab's warning badge in the same place,
+  since "new page" is exactly when a stale badge from the previous page
+  should go away.
+
+**A documentation gap worth knowing about**: this file's "Second pass
+(live detection)" and dataset-expansion sections written during
+`siteBehaviorIntegration` never made it into what's on `main` -- those
+sandbox commits were never pushed, and the direct file copies used to get
+that work onto `main` didn't happen to include this README. So `main`'s
+copy of this file currently undersells what's actually shipped there
+(live detection, plain-language Observed explanations, the 127-domain
+index). Worth a separate small pass to backfill, not attempted here to
+keep this branch's diff focused on what it's actually for.
+
+## Connecting to the website (`websiteImprovement` branch)
+
+The website (`website/`) now has two pages that talk to this extension or
+duplicate a slice of its logic: `history.html` (scan history) and
+`check.html` (check a URL without installing anything). Both are described
+precisely in `website/privacy.html`'s "The website: scan history and URL
+check" section -- this section covers the extension-side mechanics.
+
+### `externally_connectable` and the pinned extension ID
+
+`manifest.json` now has:
+
+```json
+"key": "<base64 DER SPKI public key>",
+"externally_connectable": {
+  "matches": [
+    "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com/*",
+    "http://localhost:8000/*"
+  ]
+}
+```
+
+`externally_connectable.matches` is the actual security boundary: Chrome
+refuses to deliver a message from any origin not listed there, full stop --
+a website we don't control cannot reach this extension no matter what it
+tries. The `localhost:8000` entry matches `DEPLOY.md`'s "Testing locally"
+instructions (`python3 -m http.server 8000`); remove it before a build you
+don't want reachable from local dev servers.
+
+The `key` field exists for an unrelated but necessary reason: an unpacked
+(unpublished) extension normally gets a **random** ID every time it's
+loaded, and `website/assets/extension-bridge.js` needs a fixed ID to call
+`chrome.runtime.sendMessage(extensionId, ...)` from the website's side.
+Adding `key` (a public key; Chrome derives the ID deterministically as a
+hash of it) pins the ID across reloads. The matching private key is
+**not** in this repo -- it was generated for this branch and handed off
+separately (see the branch summary doc); load the unpacked extension once
+and confirm `chrome://extensions` shows the same ID as
+`CLIPPRI_EXTENSION_ID` in `extension-bridge.js` before relying on this.
+If they ever diverge (e.g. a repackage with a different key, or eventual
+Chrome Web Store publication under a store-assigned ID), update that
+constant to match -- a mismatched ID doesn't error, it just silently never
+gets a response.
+
+### `website_bridge_background.js`
+
+New background file, `onMessageExternal`-only, read-only. Re-checks
+`sender.origin` against the same allowlist as `externally_connectable`
+(defense in depth -- never rely on manifest scoping alone) before handling
+`{ type: "getSavedSites" }`. Reads `chrome.storage.local`'s `savedSites`
+key directly (same key `storage.js`'s `SiteStorage` manages) rather than
+reusing `storage.js`, since that file declares `window.SiteStorage` and
+there's no `window` in a service worker -- same reason
+`tosdr_background_client.js` re-implements a background-safe slice of
+`tosdr.js` instead of sharing it directly.
+
+Sends back `{ domain, policyUrl, text, savedAt }` per saved site --
+including the raw policy `text` already sitting in local storage, so the
+website can run its own bundled copy of `redflags-engine.js` and get a
+real Disclosed reading without the extension needing to re-run analysis on
+its behalf. `tabId` is deliberately excluded (meaningless outside the
+extension). No ToS;DR or Tracker Radar re-fetch happens here -- see
+`website/assets/history.js`'s header comment for why that's out of scope
+for a history list specifically.
+
+### What the website can't do that the extension can
+
+`website/check.html`'s Disclosed channel is ToS;DR-only, not the local
+classifier -- fetching an arbitrary third *site's* policy page
+cross-origin from plain page JS is blocked by normal browser CORS, and
+only an installed extension's `host_permissions` bypasses that. Its
+Observed channel reuses the same curated `tracker_radar_snapshot.json`
+snapshot the extension falls back to (a copy lives at
+`website/assets/tracker_radar_snapshot.json` -- keep both in sync when
+`tracker_radar/run.py` is re-run; nothing currently automates that).
+
+### Open question not resolved in this branch
+
+Whether `api.tosdr.org` actually sends CORS headers permitting an
+arbitrary website (as opposed to an extension, which isn't subject to
+CORS) to call it directly from browser JS is **untested** -- this
+sandbox's network is allowlisted and can't reach `api.tosdr.org`. If it
+turns out to be blocked, `check.js` degrades to an honest "couldn't reach
+ToS;DR directly" message rather than failing silently, but the real fix in
+that case would be a minimal server-side proxy -- a genuine new backend
+component this project doesn't have today (see `privacy.html`'s note that
+any such change would be documented explicitly before shipping). Test this
+against a real deployed page before deciding whether that's needed;
+deliberately not built speculatively here.
+
+### "What's contributing to this" detail (collapsed by default)
+
+Both pages now have an opt-in expandable detail view under each risk badge,
+answering "why this score" rather than just showing the badge:
+
+- `history.js`'s Disclosed badge -- a collapsed `<details>` listing each
+  matched red-flag category with its severity icon and the first matched
+  text snippet, same data `redflags-engine.js`'s `analyze()` already
+  returns (unlike the extension popup's always-open version, this one
+  starts collapsed -- it's supporting detail here, not the primary
+  result).
+- `check.js`'s Disclosed badge -- now also fetches ToS;DR's `/service/v3`
+  point-by-point case list (same second request `tosdr.js`'s
+  `getServiceDetail` makes for the popup), shown in a collapsed details
+  block. One extra request per lookup, only fired after a service match is
+  found.
+- `check.js`'s Observed badge -- a collapsed details block built entirely
+  from the snapshot entry's own aggregate fields (`categoryBreakdown`,
+  `flaggedOwners`, `fingerprintingBreakdown`, `unmatchedDomains` -- see
+  `tracker_radar_snapshot.json`'s `schemaNote`), explained via a synced
+  copy of `tracker_category_glossary.js`. Deliberately not the per-domain
+  `matchedDomains` list popup.js's `renderObserved` shows -- that field
+  only exists on a live-capture profile, which this static snapshot isn't.
+
+No new network requests for history.js (still just the one relayed
+`text` field), one new request for check.js's Disclosed channel, zero new
+requests for its Observed channel (all from the already-fetched snapshot
+file).

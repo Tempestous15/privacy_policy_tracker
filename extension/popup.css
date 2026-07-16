@@ -147,3 +147,44 @@ details.summary-section.red-flags { color: #a33; }
   margin: 0;
 }
 .remove-btn:hover { background: none; text-decoration: underline; }
+
+/* --- Disclosed vs. Observed channels (siteBehaviorIntegration) ---
+   Two clearly separate channels, never a blended score -- see
+   risk_model.js and root README.md "Two-channel risk model". */
+.channel-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 0.7rem 0 0.35rem;
+}
+.channel-heading:first-of-type { margin-top: 0.3rem; }
+
+.channel-disagreement-banner {
+  background: #fcf3cf;
+  border: 1px solid #e3c95c;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.82rem;
+}
+.channel-disagreement-banner strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--brown-dark);
+}
+.channel-disagreement-banner p { margin: 0; }
+
+/* --- Observed-channel findings (siteBehaviorIntegration) --- */
+.observed-flagged {
+  background: #f8d7da;
+  border: 1px solid #e3a3a9;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+}
+.observed-flagged strong { display: block; margin-bottom: 0.3rem; color: var(--brown-dark); }
+.observed-flagged ul { margin: 0.3rem 0 0 1rem; padding: 0; }
+.observed-flagged li { margin-bottom: 0.3rem; }

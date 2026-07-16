@@ -1,0 +1,13 @@
+# Root-level .gitignore -- covers directories outside website/ (which has
+# its own .gitignore already). Primarily here to keep large, fetched
+# datasets out of git; both are reproducible via their fetch scripts.
+
+# duckduckgo/tracker-radar sparse checkout (see tracker_radar/fetch_dataset.sh)
+tracker_radar/data/
+
+# ToS;DR Zenodo CSV export (see website/tracker/fetch_tosdr_dataset.sh)
+website/tracker/tosdr_dataset/
+
+__pycache__/
+*.pyc
+*.pyo
