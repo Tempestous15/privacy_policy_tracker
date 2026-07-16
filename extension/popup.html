@@ -7,26 +7,36 @@
 </head>
 <body>
   <header>
+    <span class="brand-mark" aria-hidden="true">CP</span>
     <h1>ClipPri</h1>
   </header>
 
-  <main>
-    <section id="main-screen" class="screen">
-      <div class="card">
-        <h2>This site</h2>
-        <p id="current-tab-host" class="muted"></p>
-        <button id="check-btn">Check this site</button>
-        <div id="lookup-result"></div>
-      </div>
+  <!-- extUI: "This Site" and "Saved" used to be two cards stacked in one
+       endless scroll -- every saved site's full breakdown rendered inline
+       below the current site's, so the list only ever got longer. Tabs
+       show one view at a time instead; see popup.js for the switching
+       logic and popup.css's header comment for the fuller rationale. -->
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="current" role="tab" aria-selected="true">This Site</button>
+    <button class="tab" data-tab="saved" role="tab" aria-selected="false">Saved <span id="saved-count" class="tab-count hidden">0</span></button>
+  </nav>
 
-      <div class="card">
-        <h2>Your saved sites</h2>
-        <div id="saved-list"></div>
+  <main>
+    <section id="tab-current" class="tab-panel active" role="tabpanel">
+      <div class="site-row">
+        <span class="site-favicon" id="site-favicon" aria-hidden="true"></span>
+        <p id="current-tab-host" class="site-host"></p>
       </div>
+      <button id="check-btn">Check this site</button>
+      <div id="lookup-result"></div>
     </section>
 
-    <p id="global-error" class="error hidden"></p>
+    <section id="tab-saved" class="tab-panel" role="tabpanel">
+      <div id="saved-list"></div>
+    </section>
   </main>
+
+  <p id="global-error" class="error hidden"></p>
 
   <script src="redflags-engine.js"></script>
   <script src="webllm-client.js"></script>
