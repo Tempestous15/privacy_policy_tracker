@@ -90,6 +90,14 @@ if (LIVE_CAPTURE_SUPPORTED) {
           thirdPartyDomains: [],
           startedAt: Date.now(),
         });
+        // A new page load also means any consent-prompt warning badge
+        // from the *previous* page in this tab no longer applies -- see
+        // consent_prompt_background.js, which is what sets it.
+        try {
+          chrome.action.setBadgeText({ tabId: details.tabId, text: "" });
+        } catch {
+          // ignore -- badge clearing is best-effort, never worth failing capture over
+        }
         return;
       }
 

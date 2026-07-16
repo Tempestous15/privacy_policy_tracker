@@ -18,7 +18,10 @@
     "scripts": [
       "background.js",
       "tracker_radar_score.js",
-      "tracker_capture_background.js"
+      "tracker_capture_background.js",
+      "tosdr_background_client.js",
+      "risk_model.js",
+      "consent_prompt_background.js"
     ]
   },
   "content_security_policy": {
@@ -33,5 +36,18 @@
       "id": "clippri@example.invalid",
       "strict_min_version": "109.0"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "consent_prompt_detector.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
 }
