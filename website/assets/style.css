@@ -216,3 +216,110 @@ footer a:hover { color: var(--brown-dark); }
     font-size: 0.9rem;
     line-height: 1.6;
 }
+
+/* On-device reassurance callout -- used on history.html and check.html,
+   right where each feature's data flow is least obvious (a website talking
+   to an installed extension, or fetching a third-party API directly from
+   your browser). Deliberately not just a footer disclaimer -- see
+   websiteImprovement summary for why this needed to be visible before the
+   user acts, not just documented in privacy.html. */
+.on-device-note {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    background: var(--brown-faint);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    max-width: 700px;
+}
+.on-device-note .icon { font-size: 1.1rem; line-height: 1.6; }
+.on-device-note p {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+.on-device-note strong { color: var(--brown-dark); }
+
+/* Scan-history / URL-check pages */
+.tool-page { max-width: 700px; margin: 0 auto; padding: 3rem 0; }
+.tool-page h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--brown-dark);
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+}
+.tool-page .tool-intro {
+    color: var(--text-muted);
+    font-size: 1.02rem;
+    margin-bottom: 1.75rem;
+    max-width: 600px;
+}
+
+.check-form { display: flex; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.check-form input[type="text"] {
+    flex: 1 1 320px;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface);
+}
+.check-form input[type="text"]:focus { outline: 2px solid var(--brown-light); outline-offset: 1px; }
+
+.status-line {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+.status-line.error { color: #a33322; }
+
+.saved-item, .check-result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+}
+.saved-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.saved-item-header strong { color: var(--brown-dark); font-size: 1.05rem; }
+.saved-item-date, .channel-source-note {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+.channel-heading {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--brown-light);
+    margin: 1rem 0 0.4rem;
+}
+
+.risk-badge {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--brown-dark);
+}
+.risk-low { background: #dff0d8; }
+.risk-medium { background: #fcf3cf; }
+.risk-high { background: #f8d7da; }
+.risk-unknown { background: var(--brown-faint); }
+
+.muted { color: var(--text-muted); font-size: 0.92rem; }
+.error { color: #a33322; font-size: 0.92rem; }

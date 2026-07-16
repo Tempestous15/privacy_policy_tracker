@@ -278,3 +278,93 @@ copy of this file currently undersells what's actually shipped there
 (live detection, plain-language Observed explanations, the 127-domain
 index). Worth a separate small pass to backfill, not attempted here to
 keep this branch's diff focused on what it's actually for.
+
+## Connecting to the website (`websiteImprovement` branch)
+
+The website (`website/`) now has two pages that talk to this extension or
+duplicate a slice of its logic: `history.html` (scan history) and
+`check.html` (check a URL without installing anything). Both are described
+precisely in `website/privacy.html`'s "The website: scan history and URL
+check" section -- this section covers the extension-side mechanics.
+
+### `externally_connectable` and the pinned extension ID
+
+`manifest.json` now has:
+
+```json
+"key": "<base64 DER SPKI public key>",
+"externally_connectable": {
+  "matches": [
+    "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com/*",
+    "http://localhost:8000/*"
+  ]
+}
+```
+
+`externally_connectable.matches` is the actual security boundary: Chrome
+refuses to deliver a message from any origin not listed there, full stop --
+a website we don't control cannot reach this extension no matter what it
+tries. The `localhost:8000` entry matches `DEPLOY.md`'s "Testing locally"
+instructions (`python3 -m http.server 8000`); remove it before a build you
+don't want reachable from local dev servers.
+
+The `key` field exists for an unrelated but necessary reason: an unpacked
+(unpublished) extension normally gets a **random** ID every time it's
+loaded, and `website/assets/extension-bridge.js` needs a fixed ID to call
+`chrome.runtime.sendMessage(extensionId, ...)` from the website's side.
+Adding `key` (a public key; Chrome derives the ID deterministically as a
+hash of it) pins the ID across reloads. The matching private key is
+**not** in this repo -- it was generated for this branch and handed off
+separately (see the branch summary doc); load the unpacked extension once
+and confirm `chrome://extensions` shows the same ID as
+`CLIPPRI_EXTENSION_ID` in `extension-bridge.js` before relying on this.
+If they ever diverge (e.g. a repackage with a different key, or eventual
+Chrome Web Store publication under a store-assigned ID), update that
+constant to match -- a mismatched ID doesn't error, it just silently never
+gets a response.
+
+### `website_bridge_background.js`
+
+New background file, `onMessageExternal`-only, read-only. Re-checks
+`sender.origin` against the same allowlist as `externally_connectable`
+(defense in depth -- never rely on manifest scoping alone) before handling
+`{ type: "getSavedSites" }`. Reads `chrome.storage.local`'s `savedSites`
+key directly (same key `storage.js`'s `SiteStorage` manages) rather than
+reusing `storage.js`, since that file declares `window.SiteStorage` and
+there's no `window` in a service worker -- same reason
+`tosdr_background_client.js` re-implements a background-safe slice of
+`tosdr.js` instead of sharing it directly.
+
+Sends back `{ domain, policyUrl, text, savedAt }` per saved site --
+including the raw policy `text` already sitting in local storage, so the
+website can run its own bundled copy of `redflags-engine.js` and get a
+real Disclosed reading without the extension needing to re-run analysis on
+its behalf. `tabId` is deliberately excluded (meaningless outside the
+extension). No ToS;DR or Tracker Radar re-fetch happens here -- see
+`website/assets/history.js`'s header comment for why that's out of scope
+for a history list specifically.
+
+### What the website can't do that the extension can
+
+`website/check.html`'s Disclosed channel is ToS;DR-only, not the local
+classifier -- fetching an arbitrary third *site's* policy page
+cross-origin from plain page JS is blocked by normal browser CORS, and
+only an installed extension's `host_permissions` bypasses that. Its
+Observed channel reuses the same curated `tracker_radar_snapshot.json`
+snapshot the extension falls back to (a copy lives at
+`website/assets/tracker_radar_snapshot.json` -- keep both in sync when
+`tracker_radar/run.py` is re-run; nothing currently automates that).
+
+### Open question not resolved in this branch
+
+Whether `api.tosdr.org` actually sends CORS headers permitting an
+arbitrary website (as opposed to an extension, which isn't subject to
+CORS) to call it directly from browser JS is **untested** -- this
+sandbox's network is allowlisted and can't reach `api.tosdr.org`. If it
+turns out to be blocked, `check.js` degrades to an honest "couldn't reach
+ToS;DR directly" message rather than failing silently, but the real fix in
+that case would be a minimal server-side proxy -- a genuine new backend
+component this project doesn't have today (see `privacy.html`'s note that
+any such change would be documented explicitly before shipping). Test this
+against a real deployed page before deciding whether that's needed;
+deliberately not built speculatively here.

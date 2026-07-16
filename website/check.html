@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check a URL — ClipPri</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>ClipPri</h1>
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="check.html">Check a URL</a>
+                <a href="history.html">Scan History</a>
+                <a href="mission.html">Mission</a>
+                <a href="privacy.html">Privacy</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <div class="container">
+            <div class="tool-page">
+                <h2>Check a Site</h2>
+                <p class="tool-intro">
+                    A lighter version of the extension's scan, without installing anything. Paste a
+                    domain to see what we can show from your browser alone.
+                </p>
+
+                <div class="on-device-note">
+                    <span class="icon" aria-hidden="true">🔒</span>
+                    <p>
+                        <strong>Nothing you type here is sent to us.</strong> This page makes at most one
+                        direct request from your browser to ToS;DR's public API (never through any server
+                        of ours) and looks up the domain in a small dataset bundled with this page. See
+                        <a href="privacy.html">Privacy Policy</a> for exact detail, and note the scope
+                        limits below -- this page can't do everything the extension can.
+                    </p>
+                </div>
+
+                <form id="check-form" class="check-form">
+                    <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" />
+                    <button type="submit" class="btn btn-primary">Check</button>
+                </form>
+
+                <div id="status" class="status-line"></div>
+                <div id="result"></div>
+
+                <p class="muted" style="margin-top:2.5rem;">
+                    <strong>Scope limits, honestly stated:</strong> this page can only show a ToS;DR
+                    community rating (for sites ToS;DR has reviewed) and Observed data for a small,
+                    curated set of sites (the same ~20-site snapshot the extension falls back to). It
+                    cannot fetch and locally scan an arbitrary site's actual policy text the way the
+                    extension does -- browsers block a plain webpage from fetching another site's pages
+                    directly (the extension can, via a permission only an installed extension can
+                    request). For a full scan of any site, including live tracker detection,
+                    <a href="https://github.com/Tempestous15/privacy_policy_tracker/tree/main/extension" target="_blank" rel="noopener">get the extension</a>.
+                </p>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            <a href="mission.html">Our Mission</a> |
+            <a href="privacy.html">Privacy Policy</a>
+            <br>
+            ClipPri
+        </div>
+    </footer>
+    <script src="assets/tracker-snapshot-lookup.js"></script>
+    <script src="assets/check.js"></script>
+</body>
+</html>
