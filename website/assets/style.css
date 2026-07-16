@@ -32,11 +32,20 @@ header {
     padding: 1.25rem 0;
 }
 header .container { display: flex; justify-content: space-between; align-items: center; }
-header h1 {
+header .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--brown-dark);
     letter-spacing: -0.02em;
+    text-decoration: none;
+}
+header .brand-mark {
+    height: 28px;
+    width: auto;
+    display: block;
 }
 header nav a {
     color: var(--text-muted);

@@ -23,10 +23,14 @@ body {
 
 header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--border);
+}
+
+header .logo-mark {
+  display: block;
 }
 
 header h1 {
