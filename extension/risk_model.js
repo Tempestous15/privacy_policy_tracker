@@ -67,7 +67,13 @@ function compareChannels(disclosedLevel, observedLevel) {
   return { comparable: true, agree: false, note };
 }
 
-window.SiteRiskModel = {
+// `self` rather than `window`: this file is loaded both by popup.html
+// (a normal page context, where self === window) and, as of
+// popUpTiming, by the background service worker via background_entry.js
+// (which has no `window` at all) -- see consent_prompt_background.js for
+// the second use. Using `self` makes it work identically in both without
+// needing two copies of this logic.
+self.SiteRiskModel = {
   disclosedLevelFromTosdrRating,
   observedLevelFromRiskScore,
   compareChannels,

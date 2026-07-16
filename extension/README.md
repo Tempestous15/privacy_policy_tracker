@@ -161,6 +161,74 @@ how to trim a 20k+ file dataset), not something this branch attempts.
    `tosdr.js` to an invalid host) and confirm the Observed section still
    renders fully. Revert before committing.
 
+### Timing the warning (popUpTiming branch)
+
+Everything above only ever surfaces information when the user clicks
+something -- the toolbar icon, "Check this site." That's fine for
+research, but it misses the moment that actually matters: right when a
+site is asking the user to accept cookies, agree to a privacy policy, or
+check a ToS consent box. By the time someone opens the popup on their own
+initiative, they've often already clicked "Accept."
+
+`consent_prompt_detector.js` (new) is a content script -- injected
+automatically on every page via `manifest.json`'s new `content_scripts`
+entry, a real behavior change from the rest of the extension (see "A note
+on always-on detection" below). It watches for:
+
+- Known Consent Management Platform markup (OneTrust, Cookiebot, Didomi,
+  Quantcast/IAB TCF, Usercentrics, TrustArc, Osano, Termly, and others) --
+  high-confidence, since a handful of vendors cover a large share of real
+  sites.
+- A generic fallback: visible text matching cookie/consent/GDPR language,
+  an actionable button (Accept/Agree/Allow/...), gated on a positioning or
+  container-naming signal so an unrelated "Accept" button elsewhere on the
+  page doesn't false-positive.
+- Sign-up/account-creation consent checkboxes ("I agree to the Privacy
+  Policy...").
+
+On a match, it asks `consent_prompt_background.js` (new) whether this site
+is worth interrupting the user about, using two signals that are already
+cheap/available -- **not** a full policy-text fetch+scan, which would mean
+an automatic page-fetch on every single site visited, a much bigger
+passive-monitoring step than watching for a banner shape:
+
+- **Observed**: whatever `tracker_capture_background.js` has already
+  captured live for that tab (zero extra cost -- it's already running).
+- **Disclosed**: a single ToS;DR rating lookup (`tosdr_background_client.js`,
+  new -- a small standalone client since `tosdr.js` is popup-only and
+  declares `window.TosdrClient`, and `window` doesn't exist in the service
+  worker).
+
+It warns if either signal alone is high-risk, or (reusing
+`risk_model.js`'s `compareChannels`) if the two disagree -- the same
+"surface a mismatch first" principle as the popup's banner, just now at
+the moment it can actually change what someone's about to click. When it
+warns, `consent_prompt_detector.js` renders a small in-page banner next to
+the detected prompt (dismissible, not blocking, no page content read
+beyond the prompt-shaped DOM it already found) and the toolbar icon gets a
+red "!" badge, cleared automatically on the next page navigation.
+
+`risk_model.js` changed its export from `window.SiteRiskModel` to
+`self.SiteRiskModel` so it works unmodified in both the popup (where
+`self === window`) and the service worker (which has no `window` at all) --
+this is the only change to that file's actual logic (none).
+
+**A note on always-on detection.** Every other capability in this
+extension is strictly opt-in-per-click ("no background monitoring" is
+stated outright in the old `browser-extension/README.md`). This content
+script is a genuine exception: it runs on every page automatically to
+watch for consent-prompt shapes. It never reads page content beyond that
+(no page text generally, no form values, nothing sent anywhere -- the only
+network calls stay exactly what they were: one ToS;DR request per
+evaluation, no new endpoints), but it's a real behavior change worth being
+upfront about, and `privacy.html` should be updated to disclose it before
+this ships broadly (not yet done as part of this branch -- flagging it
+rather than guessing at the right wording).
+
+**No new permissions were needed** for any of this -- `content_scripts`
+only requires the `host_permissions` already declared, and the toolbar
+badge only requires the already-declared `action` key.
+
 ### Existing files touched, and why
 
 This integration prefers new files (`tracker_radar_client.js`,
@@ -182,3 +250,31 @@ wire the new module into the popup's render logic:
 All three files were last rewritten in commit `9fd2c0a` (WebGPU/Pyodide
 overhaul) -- the edits above were kept intentionally small for that
 reason.
+
+**popUpTiming's touches to existing files**, all small and additive:
+
+- **`manifest.json`** -- added a `content_scripts` entry (new:
+  `consent_prompt_detector.js`, runs on every page) and extended both
+  background script lists with the three new background-side files. No
+  new permissions.
+- **`background_entry.js`** -- three more `importScripts()` calls, same
+  pattern as the previous round; comment updated to explain the new
+  dependency order.
+- **`risk_model.js`** -- exports via `self.SiteRiskModel` instead of
+  `window.SiteRiskModel` (one line) so the background service worker can
+  reuse it too. No logic changed.
+- **`tracker_capture_background.js`** -- the existing `main_frame`
+  handler (already responsible for resetting a tab's capture on a new
+  page load) now also clears that tab's warning badge in the same place,
+  since "new page" is exactly when a stale badge from the previous page
+  should go away.
+
+**A documentation gap worth knowing about**: this file's "Second pass
+(live detection)" and dataset-expansion sections written during
+`siteBehaviorIntegration` never made it into what's on `main` -- those
+sandbox commits were never pushed, and the direct file copies used to get
+that work onto `main` didn't happen to include this README. So `main`'s
+copy of this file currently undersells what's actually shipped there
+(live detection, plain-language Observed explanations, the 127-domain
+index). Worth a separate small pass to backfill, not attempted here to
+keep this branch's diff focused on what it's actually for.
