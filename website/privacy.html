@@ -12,6 +12,8 @@
             <h1>ClipPri</h1>
             <nav>
                 <a href="index.html">Home</a>
+                <a href="check.html">Check a URL</a>
+                <a href="history.html">Scan History</a>
                 <a href="mission.html">Mission</a>
                 <a href="privacy.html">Privacy</a>
             </nav>
@@ -68,6 +70,42 @@
                     The first time the on-device summary feature is used, your browser also downloads the
                     language model's weights from a model-hosting CDN. That's a download of static model
                     files, not a request containing any policy text or browsing data.
+                </p>
+
+                <h3>The website: scan history and URL check</h3>
+                <p>
+                    Two pages on this website talk to data outside this static site's own files, and it's
+                    worth being precise about exactly what that means.
+                </p>
+                <ul>
+                    <li>
+                        <strong><a href="history.html">Scan History</a></strong> asks the ClipPri extension,
+                        if it's installed, for the list of sites you've saved -- using Chrome's
+                        <code>externally_connectable</code> messaging API. This is a same-device,
+                        browser-internal message between this page's JavaScript and the extension running in
+                        the same browser; it is not a network request, and nothing about it reaches any
+                        server, including ours. The extension only accepts this message from this
+                        website's own address (configured in the extension's <code>manifest.json</code>) --
+                        no other website can ask it for this.
+                    </li>
+                    <li>
+                        <strong><a href="check.html">Check a URL</a></strong> makes a direct request from
+                        your browser to the public <a href="https://tosdr.org/">ToS;DR</a> API for a
+                        community rating (same endpoint and same "goes to ToS;DR, not to us" note as the
+                        extension -- see above), and looks up the domain you typed against a small bundled
+                        dataset shipped as a static file with this website. Neither of those touches a
+                        server of ours. This page cannot fetch and scan an arbitrary site's actual policy
+                        text the way the extension does -- that requires a permission only an installed
+                        browser extension can hold, so this page's local-classifier scan is limited to
+                        sites already in the bundled dataset. See the page itself for the exact scope.
+                    </li>
+                </ul>
+                <p>
+                    Neither page adds a server, a database, or any logging on our side -- this website is
+                    still exactly what "What we don't do" (below) describes. If a future version needs a
+                    server-side component for either feature (for example, to work around a browser
+                    restriction), that would be a real architecture change, and this policy will say so
+                    explicitly before it ships.
                 </p>
 
                 <h3>What we don't do</h3>

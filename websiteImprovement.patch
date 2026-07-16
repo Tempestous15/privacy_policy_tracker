@@ -1,0 +1,2190 @@
+From 5ad6ba883870d2fc2b8d8a0537c53d685fee06eb Mon Sep 17 00:00:00 2001
+From: Sophia Hammel <sophiahammel1229@gmail.com>
+Date: Thu, 16 Jul 2026 11:44:45 -0400
+Subject: [PATCH] websiteImprovement: scan history + check-a-URL pages,
+ on-device only
+
+Two new website features, both scoped to stay consistent with the
+no-server/no-analytics constraints already documented in
+website/privacy.html:
+
+- history.html: asks the installed extension for saved sites via
+  Chrome's externally_connectable messaging (same-device only, not a
+  network request), then runs the extension's own redflags-engine.js
+  (synced copy) client-side on the relayed policy text.
+- check.html: check a domain without installing the extension. Disclosed
+  channel is a direct browser-to-ToS;DR API call (untested for CORS from
+  a plain website -- see extension/README.md's open-question section).
+  Observed channel reuses the curated tracker_radar_snapshot.json the
+  extension itself falls back to.
+
+extension/manifest.json: added a pinned "key" (stable ID
+oekejhnandbljcfcemgbjmbmbpjgchha -- private key handed off separately,
+not in this repo) and externally_connectable scoped to the site's real
+S3 origin plus localhost:8000 for local dev.
+
+New extension/website_bridge_background.js: onMessageExternal listener,
+read-only, re-checks sender.origin as defense in depth on top of
+manifest scoping, never sends tabId to the website.
+
+No CORS proxy built -- flagged as an explicit open question pending a
+real-browser test against api.tosdr.org, since adding one would be this
+project's first actual backend component.
+
+extension/README.md and website/privacy.html both updated with the
+exact new data flow.
+---
+ extension/README.md                        |  90 +++
+ extension/background_entry.js              |  11 +-
+ extension/manifest.json                    |  12 +-
+ extension/website_bridge_background.js     |  76 ++
+ website/assets/check.js                    | 183 +++++
+ website/assets/extension-bridge.js         |  67 ++
+ website/assets/history.js                  | 128 +++
+ website/assets/redflags-engine.js          | 195 +++++
+ website/assets/style.css                   | 107 +++
+ website/assets/tracker-snapshot-lookup.js  |  56 ++
+ website/assets/tracker_radar_snapshot.json | 870 +++++++++++++++++++++
+ website/check.html                         |  74 ++
+ website/history.html                       |  59 ++
+ website/index.html                         |   2 +
+ website/mission.html                       |   2 +
+ website/privacy.html                       |  38 +
+ 16 files changed, 1965 insertions(+), 5 deletions(-)
+ create mode 100644 extension/website_bridge_background.js
+ create mode 100644 website/assets/check.js
+ create mode 100644 website/assets/extension-bridge.js
+ create mode 100644 website/assets/history.js
+ create mode 100644 website/assets/redflags-engine.js
+ create mode 100644 website/assets/tracker-snapshot-lookup.js
+ create mode 100644 website/assets/tracker_radar_snapshot.json
+ create mode 100644 website/check.html
+ create mode 100644 website/history.html
+
+diff --git a/extension/README.md b/extension/README.md
+index dcd4e18..248c096 100644
+--- a/extension/README.md
++++ b/extension/README.md
+@@ -278,3 +278,93 @@ copy of this file currently undersells what's actually shipped there
+ (live detection, plain-language Observed explanations, the 127-domain
+ index). Worth a separate small pass to backfill, not attempted here to
+ keep this branch's diff focused on what it's actually for.
++
++## Connecting to the website (`websiteImprovement` branch)
++
++The website (`website/`) now has two pages that talk to this extension or
++duplicate a slice of its logic: `history.html` (scan history) and
++`check.html` (check a URL without installing anything). Both are described
++precisely in `website/privacy.html`'s "The website: scan history and URL
++check" section -- this section covers the extension-side mechanics.
++
++### `externally_connectable` and the pinned extension ID
++
++`manifest.json` now has:
++
++```json
++"key": "<base64 DER SPKI public key>",
++"externally_connectable": {
++  "matches": [
++    "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com/*",
++    "http://localhost:8000/*"
++  ]
++}
++```
++
++`externally_connectable.matches` is the actual security boundary: Chrome
++refuses to deliver a message from any origin not listed there, full stop --
++a website we don't control cannot reach this extension no matter what it
++tries. The `localhost:8000` entry matches `DEPLOY.md`'s "Testing locally"
++instructions (`python3 -m http.server 8000`); remove it before a build you
++don't want reachable from local dev servers.
++
++The `key` field exists for an unrelated but necessary reason: an unpacked
++(unpublished) extension normally gets a **random** ID every time it's
++loaded, and `website/assets/extension-bridge.js` needs a fixed ID to call
++`chrome.runtime.sendMessage(extensionId, ...)` from the website's side.
++Adding `key` (a public key; Chrome derives the ID deterministically as a
++hash of it) pins the ID across reloads. The matching private key is
++**not** in this repo -- it was generated for this branch and handed off
++separately (see the branch summary doc); load the unpacked extension once
++and confirm `chrome://extensions` shows the same ID as
++`CLIPPRI_EXTENSION_ID` in `extension-bridge.js` before relying on this.
++If they ever diverge (e.g. a repackage with a different key, or eventual
++Chrome Web Store publication under a store-assigned ID), update that
++constant to match -- a mismatched ID doesn't error, it just silently never
++gets a response.
++
++### `website_bridge_background.js`
++
++New background file, `onMessageExternal`-only, read-only. Re-checks
++`sender.origin` against the same allowlist as `externally_connectable`
++(defense in depth -- never rely on manifest scoping alone) before handling
++`{ type: "getSavedSites" }`. Reads `chrome.storage.local`'s `savedSites`
++key directly (same key `storage.js`'s `SiteStorage` manages) rather than
++reusing `storage.js`, since that file declares `window.SiteStorage` and
++there's no `window` in a service worker -- same reason
++`tosdr_background_client.js` re-implements a background-safe slice of
++`tosdr.js` instead of sharing it directly.
++
++Sends back `{ domain, policyUrl, text, savedAt }` per saved site --
++including the raw policy `text` already sitting in local storage, so the
++website can run its own bundled copy of `redflags-engine.js` and get a
++real Disclosed reading without the extension needing to re-run analysis on
++its behalf. `tabId` is deliberately excluded (meaningless outside the
++extension). No ToS;DR or Tracker Radar re-fetch happens here -- see
++`website/assets/history.js`'s header comment for why that's out of scope
++for a history list specifically.
++
++### What the website can't do that the extension can
++
++`website/check.html`'s Disclosed channel is ToS;DR-only, not the local
++classifier -- fetching an arbitrary third *site's* policy page
++cross-origin from plain page JS is blocked by normal browser CORS, and
++only an installed extension's `host_permissions` bypasses that. Its
++Observed channel reuses the same curated `tracker_radar_snapshot.json`
++snapshot the extension falls back to (a copy lives at
++`website/assets/tracker_radar_snapshot.json` -- keep both in sync when
++`tracker_radar/run.py` is re-run; nothing currently automates that).
++
++### Open question not resolved in this branch
++
++Whether `api.tosdr.org` actually sends CORS headers permitting an
++arbitrary website (as opposed to an extension, which isn't subject to
++CORS) to call it directly from browser JS is **untested** -- this
++sandbox's network is allowlisted and can't reach `api.tosdr.org`. If it
++turns out to be blocked, `check.js` degrades to an honest "couldn't reach
++ToS;DR directly" message rather than failing silently, but the real fix in
++that case would be a minimal server-side proxy -- a genuine new backend
++component this project doesn't have today (see `privacy.html`'s note that
++any such change would be documented explicitly before shipping). Test this
++against a real deployed page before deciding whether that's needed;
++deliberately not built speculatively here.
+diff --git a/extension/background_entry.js b/extension/background_entry.js
+index 088dcb3..23f6ceb 100644
+--- a/extension/background_entry.js
++++ b/extension/background_entry.js
+@@ -12,18 +12,23 @@
+ //   3. tosdr_background_client.js + risk_model.js +
+ //      consent_prompt_background.js -- warn-at-consent-time decision
+ //      logic, added by popUpTiming.
++//   4. website_bridge_background.js -- externally_connectable listener for
++//      ClipPri's own website (scan history page), added by
++//      websiteImprovement. No dependency on the other files, and nothing
++//      depends on it.
+ //
+ // Order matters: each file after background.js depends on globals
+ // declared by an earlier one in this list (consent_prompt_background.js
+ // needs getCapture from tracker_capture_background.js, TrackerRadarScore
+ // from tracker_radar_score.js, TosdrBackgroundClient and SiteRiskModel
+ // from the two files listed just before it) -- see each file's own
+-// header comment for its specific dependency. background.js doesn't
+-// interact with any of them, so its position relative to the rest
+-// doesn't matter.
++// header comment for its specific dependency. background.js and
++// website_bridge_background.js don't interact with any of the others, so
++// their position relative to the rest doesn't matter.
+ importScripts("background.js");
+ importScripts("tracker_radar_score.js");
+ importScripts("tracker_capture_background.js");
+ importScripts("tosdr_background_client.js");
+ importScripts("risk_model.js");
+ importScripts("consent_prompt_background.js");
++importScripts("website_bridge_background.js");
+diff --git a/extension/manifest.json b/extension/manifest.json
+index 57aa65f..19db26b 100644
+--- a/extension/manifest.json
++++ b/extension/manifest.json
+@@ -2,6 +2,7 @@
+   "manifest_version": 3,
+   "name": "ClipPri",
+   "version": "2.0.1",
++  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyppSvdceXdXJFZQbFC09D5EcNsJv6ZoR6jZsZ9R8sYfQouqW6iPqO2ibllMRLwRMu6kdf8LmJdNG2TsxIJUYxHD9JgvhICjpG7B7MqEK+or4AlUqSs5ch8iadCUwV1BCh+Ck+ZZB8hTFErZ37D6qCwpBkn3zs+sqiaE+g4W0xmmOONx62C7AanzRlGz9BxyamVrlzyRDQrQo5OESQovdpKjsR+7FJ60viD++tXtaa7Zar1xHDRszF2kDyGm39HQfqiiAxA0WkjZu8ivEI7x1QOxhInh+m3RkP+zzYIsssV+tzDAbav+XfQB1DqpT0yVrKlYnUCkT+Kj3zvZz+tsRVwIDAQAB",
+   "description": "Instant, on-device privacy policy scanning -- red flags, ToS;DR ratings, and an on-device AI summary. No account, no server.",
+   "permissions": [
+     "activeTab",
+@@ -21,7 +22,8 @@
+       "tracker_capture_background.js",
+       "tosdr_background_client.js",
+       "risk_model.js",
+-      "consent_prompt_background.js"
++      "consent_prompt_background.js",
++      "website_bridge_background.js"
+     ]
+   },
+   "content_security_policy": {
+@@ -49,5 +51,11 @@
+       "run_at": "document_idle",
+       "all_frames": false
+     }
+-  ]
++  ],
++  "externally_connectable": {
++    "matches": [
++      "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com/*",
++      "http://localhost:8000/*"
++    ]
++  }
+ }
+diff --git a/extension/website_bridge_background.js b/extension/website_bridge_background.js
+new file mode 100644
+index 0000000..1837f9c
+--- /dev/null
++++ b/extension/website_bridge_background.js
+@@ -0,0 +1,76 @@
++// On-device bridge between the extension and ClipPri's own website, for the
++// website's "scan history" page (website/history.html). Uses Chrome's
++// externally_connectable API (see manifest.json), which is a same-device,
++// in-browser message channel between a web page's own JS and this
++// extension -- not a network request. Nothing here ever leaves the device:
++// the website tab and this extension are both running locally in the same
++// browser, on the same machine, and chrome.runtime.onMessageExternal is how
++// they talk to each other without either one needing a server.
++//
++// Two layers of scoping, both required:
++//   1. manifest.json's "externally_connectable.matches" -- Chrome itself
++//      refuses to deliver a message here from any origin not listed there.
++//      A website we don't control simply cannot reach this listener at all.
++//   2. The sender.origin re-check below -- defense in depth, in case the
++//      manifest list is ever loosened (e.g. someone adds a wildcard without
++//      thinking it through). Never trust manifest scoping alone for
++//      anything that reads local data.
++//
++// Read-only, and reads only the "savedSites" key SiteStorage (storage.js)
++// already manages -- this file never writes anything, and never touches any
++// other extension storage. storage.js itself isn't reused here because it
++// declares `window.SiteStorage`, and there's no `window` in a service
++// worker (same reason tosdr_background_client.js re-implements a
++// background-safe version of tosdr.js instead of reusing it directly).
++//
++// Composed into the shared service-worker scope by background_entry.js.
++// No dependency on any other background file, so its position in that list
++// doesn't matter relative to the others.
++
++const _WEBSITE_BRIDGE_ALLOWED_ORIGINS = [
++  "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com",
++  "http://localhost:8000",
++];
++
++const _WEBSITE_BRIDGE_SAVED_SITES_KEY = "savedSites";
++
++// Per-saved-site payload sent to the website. Deliberately excludes tabId
++// (meaningless outside the extension -- there's no corresponding tab in the
++// website's context) and passes `text` (the raw policy text, already
++// sitting in local storage) through as-is so the website can run its own
++// bundled copy of the same local classifier (redflags-engine.js) rather
++// than the extension needing to re-run analysis on its behalf. No new
++// computation happens here -- this just reads and reshapes what's already
++// stored.
++function _publicSiteFields(site) {
++  return {
++    domain: site.domain,
++    policyUrl: site.policyUrl || null,
++    text: site.text || null,
++    savedAt: site.savedAt || null,
++  };
++}
++
++async function _getSavedSitesForWebsite() {
++  const stored = await chrome.storage.local.get([_WEBSITE_BRIDGE_SAVED_SITES_KEY]);
++  const sites = stored[_WEBSITE_BRIDGE_SAVED_SITES_KEY] || {};
++  return Object.values(sites)
++    .sort((a, b) => b.savedAt - a.savedAt)
++    .map(_publicSiteFields);
++}
++
++chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
++  if (!_WEBSITE_BRIDGE_ALLOWED_ORIGINS.includes(sender.origin)) {
++    // Should be unreachable given manifest.json's externally_connectable
++    // scoping, but never assume that scoping alone is enough -- see header
++    // comment. Silently refuse rather than responding with an error object,
++    // so an unexpected sender learns nothing about this listener's shape.
++    return false;
++  }
++  if (!message || message.type !== "getSavedSites") return false;
++
++  _getSavedSitesForWebsite()
++    .then((sites) => sendResponse({ ok: true, sites }))
++    .catch((err) => sendResponse({ ok: false, error: String(err && err.message || err) }));
++  return true; // async sendResponse
++});
+diff --git a/website/assets/check.js b/website/assets/check.js
+new file mode 100644
+index 0000000..4c3e51b
+--- /dev/null
++++ b/website/assets/check.js
+@@ -0,0 +1,183 @@
++// website/check.html -- Feature 2 (check a URL without the extension).
++//
++// Two independent lookups, same "never blended into one score" rule as the
++// extension's risk_model.js -- see that file's header comment for why.
++//
++//   - Disclosed: a direct browser fetch to ToS;DR's public API
++//     (api.tosdr.org), the same endpoint extension/tosdr.js calls. The
++//     extension can always reach it because host_permissions grants it
++//     broad cross-origin fetch access; this page has no such grant and
++//     depends entirely on api.tosdr.org's own CORS headers allowing an
++//     arbitrary website's JS to call it. That's outside this codebase's
++//     control -- if it fails, we say so plainly rather than guessing why.
++//     Unlike the extension, this page CANNOT fetch and locally scan an
++//     arbitrary site's actual policy page (that would require fetching a
++//     third *site's* pages cross-origin from plain page JS, which normal
++//     browser CORS blocks regardless of ToS;DR's own policy -- only an
++//     installed extension's host_permissions can do that). See check.html's
++//     "Scope limits" paragraph.
++//   - Observed: TrackerSnapshotLookup (tracker-snapshot-lookup.js), the
++//     same curated ~20-site snapshot the extension falls back to when it
++//     has no live capture for a domain. No live capture equivalent exists
++//     here -- there's no tab for this page to have watched.
++
++const TOSDR_API_BASE = "https://api.tosdr.org";
++
++const els = {
++  form: document.getElementById("check-form"),
++  input: document.getElementById("domain-input"),
++  status: document.getElementById("status"),
++  result: document.getElementById("result"),
++};
++
++function bareDomain(input) {
++  let host = input.trim();
++  try {
++    if (host.includes("://")) host = new URL(host).hostname;
++  } catch {
++    // not a parseable URL -- assume a bare domain was typed
++  }
++  return host.replace(/^www\./, "").toLowerCase();
++}
++
++function riskBadge(riskLevel) {
++  const labels = {
++    low: ["risk-low", "🟢 Low risk"],
++    medium: ["risk-medium", "🟡 Medium risk"],
++    high: ["risk-high", "🔴 High risk"],
++  };
++  const [cls, label] = labels[riskLevel] || ["risk-unknown", "⚪ Not available"];
++  const span = document.createElement("span");
++  span.className = `risk-badge ${cls}`;
++  span.textContent = label;
++  return span;
++}
++
++function tosdrRatingToLevel(rating) {
++  if (!rating) return null;
++  const r = String(rating).toUpperCase();
++  if (r === "A" || r === "B") return "low";
++  if (r === "C") return "medium";
++  if (r === "D" || r === "E") return "high";
++  return null;
++}
++
++// Returns { ok: true, rating } | { ok: true, rating: null } (no review
++// found) | { ok: false, reason: "cors-or-network" }. Never throws.
++async function fetchTosdrRating(domain) {
++  try {
++    const searchResp = await fetch(`${TOSDR_API_BASE}/search/v5?query=${encodeURIComponent(domain)}`);
++    if (!searchResp.ok) return { ok: false, reason: "cors-or-network" };
++    const data = await searchResp.json();
++    const services = data.services || [];
++    const exact = services.find((svc) =>
++      (svc.urls || []).some((u) => {
++        try {
++          return new URL(u).hostname.replace(/^www\./, "") === domain;
++        } catch {
++          return false;
++        }
++      })
++    );
++    const service = exact || services[0] || null;
++    return { ok: true, rating: service ? service.rating || "N/A" : null };
++  } catch {
++    // A CORS block surfaces here as a generic "Failed to fetch" TypeError,
++    // indistinguishable from an actual network failure -- see header
++    // comment. We can't tell which happened, so we don't guess.
++    return { ok: false, reason: "cors-or-network" };
++  }
++}
++
++function renderDisclosed(container, tosdrResult) {
++  const heading = document.createElement("div");
++  heading.className = "channel-heading";
++  heading.textContent = "Disclosed -- ToS;DR community rating";
++  container.appendChild(heading);
++
++  if (!tosdrResult.ok) {
++    const p = document.createElement("p");
++    p.className = "muted";
++    p.textContent =
++      "Couldn't reach ToS;DR directly from this page (likely blocked by ToS;DR's own cross-origin " +
++      "policy for plain websites). The extension doesn't hit this limit -- it's able to make this same " +
++      "request directly.";
++    container.appendChild(p);
++    return;
++  }
++  if (!tosdrResult.rating) {
++    const p = document.createElement("p");
++    p.className = "muted";
++    p.textContent = "No ToS;DR review found for this domain.";
++    container.appendChild(p);
++    return;
++  }
++  container.appendChild(riskBadge(tosdrRatingToLevel(tosdrResult.rating)));
++  const p = document.createElement("p");
++  p.className = "channel-source-note";
++  p.style.marginTop = "0.4rem";
++  p.textContent = `ToS;DR rating: ${tosdrResult.rating}`;
++  container.appendChild(p);
++}
++
++function observedRiskLevel(riskScore) {
++  if (riskScore === null || riskScore === undefined) return null;
++  if (riskScore < 25) return "low";
++  if (riskScore < 60) return "medium";
++  return "high";
++}
++
++async function renderObserved(container, domain) {
++  const heading = document.createElement("div");
++  heading.className = "channel-heading";
++  heading.textContent = "Observed -- what we can technically detect";
++  container.appendChild(heading);
++
++  const profile = await TrackerSnapshotLookup.lookupDomain(domain);
++  if (!profile || profile.coverage?.riskScoreWithheld) {
++    const p = document.createElement("p");
++    p.className = "muted";
++    p.textContent = profile
++      ? "Detected too little tracking activity to score confidently."
++      : "Not in our current curated scan yet -- this page only covers a small set of sites so far. " +
++        "The extension can detect this live for any site you actually visit.";
++    container.appendChild(p);
++    return;
++  }
++  container.appendChild(riskBadge(observedRiskLevel(profile.riskScore)));
++  const p = document.createElement("p");
++  p.className = "channel-source-note";
++  p.style.marginTop = "0.4rem";
++  const captured = profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan";
++  p.textContent = `${profile.trackerCount} third-party domain(s) detected in a scan on ${captured}.`;
++  container.appendChild(p);
++}
++
++els.form.addEventListener("submit", async (e) => {
++  e.preventDefault();
++  const raw = els.input.value;
++  if (!raw.trim()) return;
++  const domain = bareDomain(raw);
++
++  els.status.textContent = `Checking ${domain}…`;
++  els.status.classList.remove("error");
++  els.result.innerHTML = "";
++
++  const card = document.createElement("div");
++  card.className = "check-result-card";
++  const title = document.createElement("strong");
++  title.textContent = domain;
++  card.appendChild(title);
++
++  const disclosedContainer = document.createElement("div");
++  card.appendChild(disclosedContainer);
++  const observedContainer = document.createElement("div");
++  card.appendChild(observedContainer);
++
++  els.result.appendChild(card);
++  els.status.textContent = "";
++
++  const tosdrResult = await fetchTosdrRating(domain);
++  renderDisclosed(disclosedContainer, tosdrResult);
++  await renderObserved(observedContainer, domain);
++});
+diff --git a/website/assets/extension-bridge.js b/website/assets/extension-bridge.js
+new file mode 100644
+index 0000000..1a90717
+--- /dev/null
++++ b/website/assets/extension-bridge.js
+@@ -0,0 +1,67 @@
++// Shared helper for talking to the ClipPri browser extension via Chrome's
++// externally_connectable messaging (see extension/website_bridge_background.js
++// and extension/manifest.json). Same-device, same-browser messaging only --
++// this never makes a network request. Used by history.js today; check.js
++// (Feature 2) doesn't need it, since checking an arbitrary URL works
++// without the extension installed at all.
++//
++// EXTENSION_ID must match extension/manifest.json's pinned "key" field
++// (see websiteImprovement summary doc for how that key was generated).
++// Chrome computes the ID deterministically from that key, so it's stable
++// across installs/reloads -- but if the extension is ever repackaged with a
++// different key (or published to the Chrome Web Store under a new key),
++// this constant has to be updated to match, or every message here will
++// silently fail (chrome.runtime.sendMessage to a nonexistent ID just
++// resolves as "no such extension", it doesn't throw a helpful error).
++const CLIPPRI_EXTENSION_ID = "oekejhnandbljcfcemgbjmbmbpjgchha";
++
++// Whether this browser exposes chrome.runtime.sendMessage to page JS at
++// all (Chrome/Chromium only -- Firefox doesn't support externally_connectable
++// the same way, and Safari doesn't support it either). Callers should check
++// this before attempting a message and show a clear "not supported in this
++// browser" state rather than a confusing silent failure.
++function isExtensionMessagingSupported() {
++  return typeof chrome !== "undefined" && !!chrome.runtime && !!chrome.runtime.sendMessage;
++}
++
++// Resolves to { ok: true, sites: [...] } on success, or { ok: false,
++// reason } on any failure -- including "extension not installed," which
++// looks the same from the page's side as "extension installed but
++// rejected the message" (Chrome gives no way to distinguish "no such
++// extension" from "extension didn't answer"). Never throws.
++function requestSavedSitesFromExtension(timeoutMs = 4000) {
++  return new Promise((resolve) => {
++    if (!isExtensionMessagingSupported()) {
++      resolve({ ok: false, reason: "unsupported-browser" });
++      return;
++    }
++
++    let settled = false;
++    const timer = setTimeout(() => {
++      if (settled) return;
++      settled = true;
++      resolve({ ok: false, reason: "no-response" });
++    }, timeoutMs);
++
++    try {
++      chrome.runtime.sendMessage(CLIPPRI_EXTENSION_ID, { type: "getSavedSites" }, (response) => {
++        if (settled) return;
++        settled = true;
++        clearTimeout(timer);
++        if (chrome.runtime.lastError || !response || response.ok !== true) {
++          resolve({ ok: false, reason: "not-installed-or-rejected" });
++          return;
++        }
++        resolve({ ok: true, sites: response.sites || [] });
++      });
++    } catch {
++      if (!settled) {
++        settled = true;
++        clearTimeout(timer);
++        resolve({ ok: false, reason: "not-installed-or-rejected" });
++      }
++    }
++  });
++}
++
++window.ClipPriBridge = { isExtensionMessagingSupported, requestSavedSitesFromExtension, CLIPPRI_EXTENSION_ID };
+diff --git a/website/assets/history.js b/website/assets/history.js
+new file mode 100644
+index 0000000..987458e
+--- /dev/null
++++ b/website/assets/history.js
+@@ -0,0 +1,128 @@
++// website/history.html -- Feature 1 (scan history). Asks the installed
++// ClipPri extension for saved sites via extension-bridge.js, then runs the
++// same local classifier the extension itself uses (redflags-engine.js,
++// synced copy -- see that file's header) directly in this page, on the
++// text the extension already relayed. No network request happens anywhere
++// in this file; the classifier is a pure regex-based lexicon scan.
++//
++// Deliberately does NOT re-fetch ToS;DR or Tracker Radar data per history
++// item here (unlike the extension popup's live "Check this site" flow) --
++// that would mean firing a request per saved site on every page load,
++// which is slower and, more importantly, out of scope for "show me what
++// I've already scanned." check.html (Feature 2) is the place for a fresh,
++// live look at both channels for one URL at a time.
++
++const els = {
++  status: document.getElementById("status"),
++  list: document.getElementById("history-list"),
++};
++
++function riskBadge(riskLevel) {
++  const labels = {
++    low: ["risk-low", "🟢 Low risk"],
++    medium: ["risk-medium", "🟡 Medium risk"],
++    high: ["risk-high", "🔴 High risk"],
++  };
++  const [cls, label] = labels[riskLevel] || ["risk-unknown", "⚪ Risk unknown"];
++  const span = document.createElement("span");
++  span.className = `risk-badge ${cls}`;
++  span.textContent = label;
++  return span;
++}
++
++function formatDate(ms) {
++  if (!ms) return "unknown date";
++  try {
++    return new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
++  } catch {
++    return "unknown date";
++  }
++}
++
++function renderSite(site) {
++  const div = document.createElement("div");
++  div.className = "saved-item";
++
++  const header = document.createElement("div");
++  header.className = "saved-item-header";
++  const name = document.createElement("strong");
++  name.textContent = site.domain;
++  const date = document.createElement("span");
++  date.className = "saved-item-date";
++  date.textContent = `Scanned ${formatDate(site.savedAt)}`;
++  header.appendChild(name);
++  header.appendChild(date);
++  div.appendChild(header);
++
++  const heading = document.createElement("div");
++  heading.className = "channel-heading";
++  heading.textContent = "Disclosed -- local scan of the saved policy text";
++  div.appendChild(heading);
++
++  if (typeof RedFlagsEngine !== "undefined" && site.text) {
++    const analysis = RedFlagsEngine.analyze(site.text);
++    div.appendChild(riskBadge(analysis.riskLevel));
++    if (analysis.categories.length) {
++      const ul = document.createElement("ul");
++      ul.style.marginTop = "0.5rem";
++      for (const cat of analysis.categories) {
++        const li = document.createElement("li");
++        li.textContent = cat.label;
++        ul.appendChild(li);
++      }
++      div.appendChild(ul);
++    } else {
++      const p = document.createElement("p");
++      p.className = "muted";
++      p.textContent = "No red flags detected by the automated scan.";
++      div.appendChild(p);
++    }
++  } else {
++    div.appendChild(riskBadge("unknown"));
++  }
++
++  if (site.policyUrl) {
++    const link = document.createElement("p");
++    link.className = "channel-source-note";
++    link.style.marginTop = "0.5rem";
++    const a = document.createElement("a");
++    a.href = site.policyUrl;
++    a.target = "_blank";
++    a.rel = "noopener";
++    a.textContent = "View the policy this was scanned from →";
++    link.appendChild(a);
++    div.appendChild(link);
++  }
++
++  return div;
++}
++
++async function init() {
++  if (!ClipPriBridge.isExtensionMessagingSupported()) {
++    els.status.textContent =
++      "Scan history requires a Chromium-based browser (Chrome, Edge, Brave) with the ClipPri extension installed.";
++    els.status.classList.add("error");
++    return;
++  }
++
++  const result = await ClipPriBridge.requestSavedSitesFromExtension();
++
++  if (!result.ok) {
++    els.status.innerHTML =
++      'No response from the ClipPri extension. Make sure it\'s installed and enabled, then reload this page. ' +
++      '<a href="https://github.com/Tempestous15/privacy_policy_tracker/tree/main/extension" target="_blank" rel="noopener">Get the extension</a>.';
++    return;
++  }
++
++  if (!result.sites.length) {
++    els.status.textContent = "No sites saved yet -- use the extension's \"Check this site\" button, then come back here.";
++    return;
++  }
++
++  els.status.textContent = `${result.sites.length} site(s) scanned, most recent first.`;
++  for (const site of result.sites) {
++    els.list.appendChild(renderSite(site));
++  }
++}
++
++init();
+diff --git a/website/assets/redflags-engine.js b/website/assets/redflags-engine.js
+new file mode 100644
+index 0000000..3ead631
+--- /dev/null
++++ b/website/assets/redflags-engine.js
+@@ -0,0 +1,195 @@
++// GENERATED FILE -- do not edit by hand.
++// Source of truth: classifier/lexicon.py. Regenerate with:
++//   python3 classifier/export_js.py && classifier/sync.sh
++(function (root) {
++  "use strict";
++
++  var CATEGORIES = [
++  {
++    "id": "data_selling",
++    "label": "Sells or monetizes your data",
++    "severity": "high",
++    "patterns": [
++      "\\bsells?\\b[^.]{0,20}\\b(your|users?'?s?|personal|customer)\\b[^.]{0,20}\\b(data|information)\\b",
++      "\\bmonetiz\\w*\\b[^.]{0,30}\\bdata\\b",
++      "\\bin exchange for (?:monetary|valuable) consideration\\b",
++      "\\bmay sell\\b[^.]{0,30}\\b(?:information|data)\\b"
++    ]
++  },
++  {
++    "id": "vague_sharing",
++    "label": "Vague third-party sharing",
++    "severity": "medium",
++    "patterns": [
++      "\\baffiliates and (?:business )?partners\\b",
++      "\\b(?:affiliates|partners)\\b[^.]{0,30}\\bthird[- ]part(?:y|ies)\\b",
++      "\\bthird[- ]part(?:y|ies)\\b[^.]{0,20}\\bfor (?:any|other) purposes?\\b",
++      "\\bshare\\w*\\b[^.]{0,30}\\bwith (?:our )?partners\\b",
++      "\\bmarketing partners\\b",
++      "\\bvendors,?\\s*partners,?\\s*and\\s*affiliates\\b"
++    ]
++  },
++  {
++    "id": "indefinite_retention",
++    "label": "Indefinite or unclear data retention",
++    "severity": "medium",
++    "patterns": [
++      "\\bas long as (?:necessary|needed)\\b",
++      "\\bindefinite(?:ly)?\\b[^.]{0,20}\\bretain\\w*\\b",
++      "\\bretain\\w*\\b[^.]{0,30}\\bindefinite(?:ly)?\\b",
++      "\\bno (?:fixed|specific|set) retention period\\b"
++    ]
++  },
++  {
++    "id": "biometric",
++    "label": "Biometric or sensitive data collection",
++    "severity": "high",
++    "patterns": [
++      "\\bbiometric\\w*\\b",
++      "\\bfacial recognition\\b",
++      "\\bfingerprint\\w*\\b",
++      "\\bvoiceprint\\w*\\b",
++      "\\bgenetic (?:data|information)\\b"
++    ]
++  },
++  {
++    "id": "broad_license",
++    "label": "Broad content license grant",
++    "severity": "high",
++    "patterns": [
++      "\\bperpetual,?\\s*(?:irrevocable,?\\s*)?(?:worldwide,?\\s*)?(?:royalty[- ]free,?\\s*)?license\\b",
++      "\\birrevocable\\b[^.]{0,30}\\blicense\\b",
++      "\\bright to use\\b[^.]{0,30}\\bany purpose\\b",
++      "\\bsublicensable\\b"
++    ]
++  },
++  {
++    "id": "opt_out_only",
++    "label": "Opt-out-only consent (buried opt-out)",
++    "severity": "medium",
++    "patterns": [
++      "\\bunless you opt[- ]out\\b",
++      "\\bautomatically enroll\\w*\\b",
++      "\\bdefault\\w*\\s+to\\s+(?:on|enabled)\\b",
++      "\\bpre[- ]checked\\b"
++    ]
++  },
++  {
++    "id": "unilateral_changes",
++    "label": "Unilateral policy changes without notice",
++    "severity": "medium",
++    "patterns": [
++      "\\bwithout\\b[^.]{0,20}\\bnotice\\b",
++      "\\bsole discretion\\b[^.]{0,30}\\b(?:modify|change)\\b"
++    ]
++  },
++  {
++    "id": "arbitration",
++    "label": "Binding arbitration / class-action waiver",
++    "severity": "high",
++    "patterns": [
++      "\\bbinding\\b[^.]{0,25}\\barbitration\\b",
++      "\\bclass\\s+actions?\\b",
++      "\\bwaive\\w*\\b[^.]{0,20}\\bright to a jury trial\\b",
++      "\\bindividual basis\\b[^.]{0,30}\\barbitration\\b",
++      "\\bmandatory arbitration\\b"
++    ]
++  },
++  {
++    "id": "weak_deletion_rights",
++    "label": "Weak or limited deletion/access rights",
++    "severity": "medium",
++    "patterns": [
++      "\\bcannot\\b[^.]{0,20}\\bguarantee\\b[^.]{0,20}\\bdeletion\\b",
++      "\\bmay retain\\b[^.]{0,30}\\bafter (?:deletion|account closure)\\b",
++      "\\bresidual copies\\b",
++      "\\bbackup (?:systems|copies)\\b[^.]{0,30}\\bretain\\w*\\b"
++    ]
++  },
++  {
++    "id": "tracking_profiling",
++    "label": "Extensive tracking / behavioral profiling",
++    "severity": "medium",
++    "patterns": [
++      "\\bbehavioral advertising\\b",
++      "\\bcross[- ]device tracking\\b",
++      "\\bthird[- ]party (?:analytics|advertising) (?:cookies|sdks?|pixels?)\\b",
++      "\\bprofile\\w*\\b[^.]{0,30}\\bbased on your\\b[^.]{0,30}\\bactivity\\b"
++    ]
++  }
++];
++  var NEGATION_WORDS = ["not", "never", "no longer", "won't", "will not", "don't", "does not", "doesn't", "without selling", "unless you", "except as", "n't"];
++  var SEVERITY_RANK = { none: 0, low: 1, medium: 2, high: 3 };
++  var SENTENCE_SPLIT_RE = /(?<=[.!?])\s+|\n+/;
++
++  function isNegated(sentence, matchStart) {
++    var prefix = sentence.slice(0, matchStart).toLowerCase();
++    for (var i = 0; i < NEGATION_WORDS.length; i++) {
++      if (prefix.indexOf(NEGATION_WORDS[i]) !== -1) return true;
++    }
++    return false;
++  }
++
++  // Scraped policy text overwhelmingly uses "smart" quotes/apostrophes;
++  // NEGATION_WORDS is written with straight ones, so without this a denial
++  // like "We don’t sell your data" would fail to match "don't" and get
++  // flagged as a red flag instead of correctly suppressed.
++  function normalizeQuotes(text) {
++    return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
++  }
++
++  function analyze(text) {
++    if (!text || !text.trim()) {
++      return { riskLevel: "unknown", categories: [] };
++    }
++
++    text = normalizeQuotes(text);
++    var sentences = text.split(SENTENCE_SPLIT_RE);
++    var results = [];
++
++    for (var c = 0; c < CATEGORIES.length; c++) {
++      var category = CATEGORIES[c];
++      var matches = [];
++
++      for (var s = 0; s < sentences.length; s++) {
++        var sentence = sentences[s];
++        for (var p = 0; p < category.patterns.length; p++) {
++          var re = new RegExp(category.patterns[p], "i");
++          var m = re.exec(sentence);
++          if (m && !isNegated(sentence, m.index)) {
++            var snippet = sentence.trim().slice(0, 200);
++            if (snippet && matches.indexOf(snippet) === -1) {
++              matches.push(snippet);
++            }
++            break;
++          }
++        }
++        if (matches.length >= 3) break;
++      }
++
++      if (matches.length) {
++        results.push({
++          id: category.id,
++          label: category.label,
++          severity: category.severity,
++          matches: matches.slice(0, 3),
++        });
++      }
++    }
++
++    var riskLevel;
++    if (!results.length) {
++      riskLevel = "low";
++    } else {
++      var topSeverity = 0;
++      for (var r = 0; r < results.length; r++) {
++        topSeverity = Math.max(topSeverity, SEVERITY_RANK[results[r].severity]);
++      }
++      riskLevel = { 3: "high", 2: "medium", 1: "low" }[topSeverity] || "low";
++    }
++
++    return { riskLevel: riskLevel, categories: results };
++  }
++
++  root.RedFlagsEngine = { analyze: analyze };
++})(typeof window !== "undefined" ? window : this);
+diff --git a/website/assets/style.css b/website/assets/style.css
+index 51b618b..148aa57 100644
+--- a/website/assets/style.css
++++ b/website/assets/style.css
+@@ -216,3 +216,110 @@ footer a:hover { color: var(--brown-dark); }
+     font-size: 0.9rem;
+     line-height: 1.6;
+ }
++
++/* On-device reassurance callout -- used on history.html and check.html,
++   right where each feature's data flow is least obvious (a website talking
++   to an installed extension, or fetching a third-party API directly from
++   your browser). Deliberately not just a footer disclaimer -- see
++   websiteImprovement summary for why this needed to be visible before the
++   user acts, not just documented in privacy.html. */
++.on-device-note {
++    display: flex;
++    gap: 0.75rem;
++    align-items: flex-start;
++    background: var(--brown-faint);
++    border: 1px solid var(--border);
++    border-radius: var(--radius-sm);
++    padding: 1rem 1.25rem;
++    margin-bottom: 2rem;
++    max-width: 700px;
++}
++.on-device-note .icon { font-size: 1.1rem; line-height: 1.6; }
++.on-device-note p {
++    margin: 0;
++    color: var(--text);
++    font-size: 0.9rem;
++    line-height: 1.6;
++}
++.on-device-note strong { color: var(--brown-dark); }
++
++/* Scan-history / URL-check pages */
++.tool-page { max-width: 700px; margin: 0 auto; padding: 3rem 0; }
++.tool-page h2 {
++    font-size: 2rem;
++    font-weight: 700;
++    color: var(--brown-dark);
++    letter-spacing: -0.03em;
++    margin-bottom: 0.5rem;
++}
++.tool-page .tool-intro {
++    color: var(--text-muted);
++    font-size: 1.02rem;
++    margin-bottom: 1.75rem;
++    max-width: 600px;
++}
++
++.check-form { display: flex; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap; }
++.check-form input[type="text"] {
++    flex: 1 1 320px;
++    padding: 0.8rem 1rem;
++    border: 1px solid var(--border);
++    border-radius: var(--radius-sm);
++    font-size: 1rem;
++    font-family: inherit;
++    color: var(--text);
++    background: var(--surface);
++}
++.check-form input[type="text"]:focus { outline: 2px solid var(--brown-light); outline-offset: 1px; }
++
++.status-line {
++    color: var(--text-muted);
++    font-size: 0.9rem;
++    margin-bottom: 1.5rem;
++}
++.status-line.error { color: #a33322; }
++
++.saved-item, .check-result-card {
++    background: var(--card);
++    border: 1px solid var(--border);
++    border-radius: var(--radius-sm);
++    padding: 1.25rem 1.5rem;
++    margin-bottom: 1rem;
++}
++.saved-item-header {
++    display: flex;
++    justify-content: space-between;
++    align-items: baseline;
++    flex-wrap: wrap;
++    gap: 0.5rem;
++    margin-bottom: 0.5rem;
++}
++.saved-item-header strong { color: var(--brown-dark); font-size: 1.05rem; }
++.saved-item-date, .channel-source-note {
++    color: var(--text-muted);
++    font-size: 0.82rem;
++}
++.channel-heading {
++    font-size: 0.85rem;
++    font-weight: 600;
++    text-transform: uppercase;
++    letter-spacing: 0.04em;
++    color: var(--brown-light);
++    margin: 1rem 0 0.4rem;
++}
++
++.risk-badge {
++    display: inline-block;
++    padding: 0.2rem 0.65rem;
++    border-radius: 999px;
++    font-size: 0.82rem;
++    font-weight: 600;
++    color: var(--brown-dark);
++}
++.risk-low { background: #dff0d8; }
++.risk-medium { background: #fcf3cf; }
++.risk-high { background: #f8d7da; }
++.risk-unknown { background: var(--brown-faint); }
++
++.muted { color: var(--text-muted); font-size: 0.92rem; }
++.error { color: #a33322; font-size: 0.92rem; }
+diff --git a/website/assets/tracker-snapshot-lookup.js b/website/assets/tracker-snapshot-lookup.js
+new file mode 100644
+index 0000000..7ee6fa3
+--- /dev/null
++++ b/website/assets/tracker-snapshot-lookup.js
+@@ -0,0 +1,56 @@
++// Website-side port of tracker_radar_client.js's snapshot lookup, for
++// website/check.html (Feature 2: check a URL without installing the
++// extension). Deliberately NOT the full tracker_radar_client.js -- that
++// file's other path (_lookupLive) asks the extension's background worker
++// for live, in-tab webRequest capture, which only exists for a page the
++// extension actually watched you browse. A plain website has no such tab
++// and cannot fetch it another way, so this only ever has the curated
++// snapshot to offer -- see check.js and website/privacy.html for how that
++// limited scope is explained to the user.
++//
++// tracker_radar_snapshot.json here is a synced copy of
++// extension/tracker_radar_snapshot.json (same ~20-site curated capture --
++// see that file's own header). Whoever refreshes the extension's copy
++// (tracker_radar/run.py, see its README) should copy the result here too;
++// this file will otherwise silently drift out of sync with the extension's.
++
++const TRACKER_SNAPSHOT_URL = "assets/tracker_radar_snapshot.json";
++
++let _snapshotPromise = null;
++
++function _loadSnapshot() {
++  if (!_snapshotPromise) {
++    _snapshotPromise = fetch(TRACKER_SNAPSHOT_URL).then((resp) => {
++      if (!resp.ok) throw new Error(`snapshot fetch failed (${resp.status})`);
++      return resp.json();
++    });
++  }
++  return _snapshotPromise;
++}
++
++// Matches tracker_radar_client.js's _bareDomain exactly, so "www.x.com" and
++// "x.com" resolve to the same entry regardless of which form the user
++// pasted or the snapshot's `site` URL uses.
++function _bareDomain(hostOrUrl) {
++  let host = hostOrUrl;
++  try {
++    if (hostOrUrl.includes("://")) host = new URL(hostOrUrl).hostname;
++  } catch {
++    // not a parseable URL -- assume it's already a bare hostname
++  }
++  return host.replace(/^www\./, "").toLowerCase();
++}
++
++// Returns null if this domain isn't in the curated snapshot -- callers
++// must render an explicit "not in our current scan" state for that case,
++// same rule as tracker_radar_client.js: never omit the Observed section or
++// imply a clean/passing result just because there's no data.
++async function lookupDomain(domain) {
++  const snapshot = await _loadSnapshot();
++  const target = _bareDomain(domain);
++  const match = (snapshot.entries || []).find((entry) => _bareDomain(entry.site) === target);
++  if (!match) return null;
++  return { ...match, capturedAt: snapshot.capturedAt, snapshotSource: snapshot.source };
++}
++
++window.TrackerSnapshotLookup = { lookupDomain, _bareDomain };
+diff --git a/website/assets/tracker_radar_snapshot.json b/website/assets/tracker_radar_snapshot.json
+new file mode 100644
+index 0000000..a47efa3
+--- /dev/null
++++ b/website/assets/tracker_radar_snapshot.json
+@@ -0,0 +1,870 @@
++{
++  "schemaNote": "Each entry matches tracker_radar/README.md Output schema exactly (site, trackerCount, topCategories, riskScore, flaggedOwners, plus extra detail fields) -- see tracker_radar/score.py build_profile().",
++  "source": "tracker_radar/run.py against tracker_radar/config.SITES (curated milestone-1 list of ~20 sites)",
++  "capturedAt": "2026-07-15T11:08:54-04:00",
++  "regenerate": "python3 -m tracker_radar.run --out tracker_radar_results.json, then copy to extension/tracker_radar_snapshot.json (same generated-artifact pattern as classifier/dist/redflags-engine.js -- see classifier/README.md)",
++  "entries": [
++    {
++      "site": "https://www.google.com",
++      "trackerCount": 1,
++      "topCategories": [
++        "CDN",
++        "Embedded Content"
++      ],
++      "riskScore": 11.5,
++      "flaggedOwners": [
++        "Google LLC"
++      ],
++      "distinctOwnerCount": 1,
++      "highFingerprintingCount": 1,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 0,
++        "medium": 0,
++        "high": 1
++      },
++      "categoryBreakdown": {
++        "CDN": 1,
++        "Embedded Content": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 1,
++        "totalThirdPartyDomains": 1,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.youtube.com",
++      "trackerCount": 5,
++      "topCategories": [
++        "CDN",
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Embedded Content",
++        "Online Payment"
++      ],
++      "riskScore": 36.8,
++      "flaggedOwners": [
++        "Google LLC"
++      ],
++      "distinctOwnerCount": 1,
++      "highFingerprintingCount": 3,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 1,
++        "medium": 0,
++        "high": 3
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 2,
++        "Advertising": 2,
++        "Online Payment": 1,
++        "CDN": 3,
++        "Embedded Content": 2
++      },
++      "unmatchedDomains": [
++        "googleapis.com"
++      ],
++      "coverage": {
++        "matchedCount": 4,
++        "totalThirdPartyDomains": 5,
++        "coverageRatio": 0.8,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "80% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.facebook.com",
++      "trackerCount": 2,
++      "topCategories": [
++        "Social - Share",
++        "Embedded Content",
++        "Social Network",
++        "Action Pixels",
++        "CDN"
++      ],
++      "riskScore": 11.5,
++      "flaggedOwners": [
++        "Facebook, Inc."
++      ],
++      "distinctOwnerCount": 1,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 1,
++        "medium": 1,
++        "high": 0
++      },
++      "categoryBreakdown": {
++        "Social - Share": 2,
++        "Action Pixels": 1,
++        "CDN": 1,
++        "Embedded Content": 2,
++        "Social Network": 2,
++        "Ad Motivated Tracking": 1,
++        "Advertising": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 2,
++        "totalThirdPartyDomains": 2,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.instagram.com",
++      "trackerCount": 2,
++      "topCategories": [
++        "CDN",
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Ad Fraud",
++        "Analytics"
++      ],
++      "riskScore": 11.5,
++      "flaggedOwners": [
++        "Facebook, Inc."
++      ],
++      "distinctOwnerCount": 1,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 1,
++        "medium": 1,
++        "high": 0
++      },
++      "categoryBreakdown": {
++        "CDN": 1,
++        "Ad Motivated Tracking": 1,
++        "Advertising": 1,
++        "Ad Fraud": 1,
++        "Analytics": 1,
++        "Audience Measurement": 1,
++        "Federated Login": 1,
++        "Social - Comment": 1,
++        "Social - Share": 1,
++        "Action Pixels": 1,
++        "Badge": 1,
++        "Embedded Content": 1,
++        "Social Network": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 2,
++        "totalThirdPartyDomains": 2,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.amazon.com",
++      "trackerCount": 42,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Analytics",
++        "Third-Party Analytics Marketing",
++        "Audience Measurement"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Amazon Technologies, Inc.",
++        "Connatix",
++        "Google LLC",
++        "GumGum",
++        "Improve Digital BV",
++        "Kargo Global, Inc.",
++        "Magnite, Inc.",
++        "Online Media Solutions Ltd. dba Brightcom",
++        "PubMatic, Inc.",
++        "Taboola, Inc.",
++        "Yahoo Inc."
++      ],
++      "distinctOwnerCount": 38,
++      "highFingerprintingCount": 1,
++      "fingerprintingBreakdown": {
++        "none": 12,
++        "low": 17,
++        "medium": 12,
++        "high": 1
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 29,
++        "Advertising": 28,
++        "Third-Party Analytics Marketing": 11,
++        "Ad Fraud": 5,
++        "Analytics": 12,
++        "Federated Login": 2,
++        "Social - Share": 1,
++        "Embedded Content": 2,
++        "Audience Measurement": 11,
++        "Action Pixels": 4,
++        "CDN": 2
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 42,
++        "totalThirdPartyDomains": 42,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.reddit.com",
++      "trackerCount": 9,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "CDN",
++        "Analytics",
++        "Third-Party Analytics Marketing"
++      ],
++      "riskScore": 89.6,
++      "flaggedOwners": [
++        "Apple Inc.",
++        "Google LLC",
++        "Reddit Inc."
++      ],
++      "distinctOwnerCount": 4,
++      "highFingerprintingCount": 4,
++      "fingerprintingBreakdown": {
++        "none": 2,
++        "low": 1,
++        "medium": 2,
++        "high": 4
++      },
++      "categoryBreakdown": {
++        "CDN": 3,
++        "Ad Motivated Tracking": 5,
++        "Advertising": 4,
++        "Online Payment": 1,
++        "Analytics": 3,
++        "Audience Measurement": 1,
++        "Third-Party Analytics Marketing": 2,
++        "Tag Manager": 1,
++        "Embedded Content": 1,
++        "Action Pixels": 1,
++        "Ad Fraud": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 9,
++        "totalThirdPartyDomains": 9,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.wikipedia.org",
++      "trackerCount": 0,
++      "topCategories": [],
++      "riskScore": null,
++      "flaggedOwners": [],
++      "distinctOwnerCount": 0,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 0,
++        "medium": 0,
++        "high": 0
++      },
++      "categoryBreakdown": {},
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 0,
++        "totalThirdPartyDomains": 0,
++        "coverageRatio": null,
++        "lowCoverage": true,
++        "riskScoreWithheld": true,
++        "note": "No third-party requests were captured for this site. This could mean the site genuinely loads no third-party trackers, or that capture failed (blocked automation, a JS-heavy page that didn't finish loading, etc.) -- verify manually before concluding either way."
++      }
++    },
++    {
++      "site": "https://www.linkedin.com",
++      "trackerCount": 9,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Embedded Content",
++        "CDN",
++        "Ad Fraud"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Claritas LLC",
++        "Google LLC",
++        "Human Security, Inc.",
++        "Microsoft Corporation"
++      ],
++      "distinctOwnerCount": 6,
++      "highFingerprintingCount": 6,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 2,
++        "medium": 1,
++        "high": 6
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 5,
++        "Advertising": 5,
++        "Ad Fraud": 2,
++        "Action Pixels": 2,
++        "Embedded Content": 3,
++        "Third-Party Analytics Marketing": 1,
++        "Analytics": 2,
++        "Audience Measurement": 2,
++        "Federated Login": 1,
++        "Social - Comment": 1,
++        "Social - Share": 1,
++        "Badge": 1,
++        "Social Network": 1,
++        "Online Payment": 1,
++        "CDN": 3
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 9,
++        "totalThirdPartyDomains": 9,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.spotify.com",
++      "trackerCount": 12,
++      "topCategories": [
++        "Embedded Content",
++        "Advertising",
++        "Ad Motivated Tracking",
++        "Analytics",
++        "Audience Measurement"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Google LLC",
++        "OneTrust LLC",
++        "Spotify AB"
++      ],
++      "distinctOwnerCount": 5,
++      "highFingerprintingCount": 4,
++      "fingerprintingBreakdown": {
++        "none": 2,
++        "low": 3,
++        "medium": 2,
++        "high": 4
++      },
++      "categoryBreakdown": {
++        "Embedded Content": 4,
++        "Non-Tracking": 2,
++        "Consent Management Platform": 2,
++        "Ad Motivated Tracking": 3,
++        "Advertising": 4,
++        "Analytics": 3,
++        "Audience Measurement": 3,
++        "Third-Party Analytics Marketing": 2,
++        "Online Payment": 1,
++        "CDN": 3,
++        "Tag Manager": 1
++      },
++      "unmatchedDomains": [
++        "fastly-insights.com"
++      ],
++      "coverage": {
++        "matchedCount": 11,
++        "totalThirdPartyDomains": 12,
++        "coverageRatio": 0.92,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "92% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.netflix.com",
++      "trackerCount": 21,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Analytics",
++        "Embedded Content",
++        "Action Pixels"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Facebook, Inc.",
++        "Google LLC",
++        "Magnite, Inc.",
++        "Snap Inc."
++      ],
++      "distinctOwnerCount": 9,
++      "highFingerprintingCount": 3,
++      "fingerprintingBreakdown": {
++        "none": 4,
++        "low": 7,
++        "medium": 4,
++        "high": 3
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 12,
++        "Advertising": 11,
++        "Ad Fraud": 2,
++        "Analytics": 5,
++        "Audience Measurement": 3,
++        "Federated Login": 2,
++        "Social - Comment": 2,
++        "Social - Share": 2,
++        "Action Pixels": 4,
++        "Badge": 2,
++        "Embedded Content": 5,
++        "Social Network": 3,
++        "Online Payment": 1,
++        "CDN": 2,
++        "Third-Party Analytics Marketing": 2,
++        "Tag Manager": 1,
++        "Non-Tracking": 1,
++        "Consent Management Platform": 1
++      },
++      "unmatchedDomains": [
++        "nflxext.com",
++        "nflximg.net",
++        "nflxso.net"
++      ],
++      "coverage": {
++        "matchedCount": 18,
++        "totalThirdPartyDomains": 21,
++        "coverageRatio": 0.86,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "86% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.nytimes.com",
++      "trackerCount": 77,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Analytics",
++        "Audience Measurement",
++        "Third-Party Analytics Marketing"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Adform A/S",
++        "Amazon Technologies, Inc.",
++        "Chartbeat",
++        "Crimtan Holdings Ltd",
++        "Datadog, Inc.",
++        "Demandbase, Inc.",
++        "DoubleVerify",
++        "Google LLC",
++        "Kargo Global, Inc.",
++        "LiveRamp Holdings, Inc.",
++        "Magnite, Inc.",
++        "McCann Disciplines Ltd.",
++        "Pickaxe LLC",
++        "PubMatic, Inc.",
++        "Yahoo Inc."
++      ],
++      "distinctOwnerCount": 59,
++      "highFingerprintingCount": 5,
++      "fingerprintingBreakdown": {
++        "none": 23,
++        "low": 31,
++        "medium": 14,
++        "high": 5
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 53,
++        "Advertising": 53,
++        "Ad Fraud": 11,
++        "Third-Party Analytics Marketing": 18,
++        "Audience Measurement": 19,
++        "Analytics": 22,
++        "Action Pixels": 4,
++        "Obscure Ownership": 1,
++        "Online Payment": 1,
++        "CDN": 2,
++        "Tag Manager": 1,
++        "Embedded Content": 3,
++        "Social - Share": 1,
++        "Social Network": 1,
++        "Consent Management Platform": 1,
++        "Federated Login": 1
++      },
++      "unmatchedDomains": [
++        "googleapis.com",
++        "nyt.com",
++        "smartadhi.com",
++        "theathletic.com"
++      ],
++      "coverage": {
++        "matchedCount": 73,
++        "totalThirdPartyDomains": 77,
++        "coverageRatio": 0.95,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "95% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.x.com",
++      "trackerCount": 5,
++      "topCategories": [
++        "CDN",
++        "Embedded Content",
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Social - Comment"
++      ],
++      "riskScore": 58.0,
++      "flaggedOwners": [
++        "Apple Inc.",
++        "Google LLC",
++        "Twitter, Inc."
++      ],
++      "distinctOwnerCount": 3,
++      "highFingerprintingCount": 3,
++      "fingerprintingBreakdown": {
++        "none": 1,
++        "low": 0,
++        "medium": 1,
++        "high": 3
++      },
++      "categoryBreakdown": {
++        "CDN": 4,
++        "Ad Motivated Tracking": 2,
++        "Advertising": 2,
++        "Online Payment": 1,
++        "Embedded Content": 3,
++        "Social - Comment": 2,
++        "Social - Share": 2,
++        "Social Network": 2,
++        "Analytics": 1,
++        "Federated Login": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 5,
++        "totalThirdPartyDomains": 5,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.walmart.com",
++      "trackerCount": 11,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Ad Fraud",
++        "Analytics",
++        "Third-Party Analytics Marketing"
++      ],
++      "riskScore": 94.5,
++      "flaggedOwners": [
++        "Google LLC",
++        "Human Security, Inc.",
++        "Integral Ad Science, Inc."
++      ],
++      "distinctOwnerCount": 5,
++      "highFingerprintingCount": 5,
++      "fingerprintingBreakdown": {
++        "none": 2,
++        "low": 1,
++        "medium": 0,
++        "high": 5
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 4,
++        "Advertising": 4,
++        "Ad Fraud": 1,
++        "Analytics": 1,
++        "Third-Party Analytics Marketing": 1,
++        "Fraud Prevention": 1
++      },
++      "unmatchedDomains": [
++        "googleapis.com",
++        "wal.co",
++        "xlgmedia.com"
++      ],
++      "coverage": {
++        "matchedCount": 8,
++        "totalThirdPartyDomains": 11,
++        "coverageRatio": 0.73,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "73% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.espn.com",
++      "trackerCount": 32,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Analytics",
++        "Audience Measurement",
++        "Third-Party Analytics Marketing"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Amazon Technologies, Inc.",
++        "Google LLC",
++        "ID5 Technology Ltd",
++        "Intimate Merger, Inc.",
++        "Kargo Global, Inc.",
++        "Magnite, Inc.",
++        "OneTrust LLC",
++        "Prospect One",
++        "PubMatic, Inc.",
++        "TMT Digital Inc.",
++        "The Walt Disney Company",
++        "Yahoo Inc."
++      ],
++      "distinctOwnerCount": 22,
++      "highFingerprintingCount": 5,
++      "fingerprintingBreakdown": {
++        "none": 2,
++        "low": 13,
++        "medium": 12,
++        "high": 5
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 21,
++        "Advertising": 21,
++        "Analytics": 7,
++        "Embedded Content": 2,
++        "Non-Tracking": 1,
++        "Consent Management Platform": 1,
++        "Third-Party Analytics Marketing": 5,
++        "Audience Measurement": 7,
++        "Online Payment": 1,
++        "CDN": 2,
++        "Tag Manager": 1,
++        "Action Pixels": 1,
++        "Ad Fraud": 3,
++        "Federated Login": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 32,
++        "totalThirdPartyDomains": 32,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://duckduckgo.com",
++      "trackerCount": 0,
++      "topCategories": [],
++      "riskScore": null,
++      "flaggedOwners": [],
++      "distinctOwnerCount": 0,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 0,
++        "medium": 0,
++        "high": 0
++      },
++      "categoryBreakdown": {},
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 0,
++        "totalThirdPartyDomains": 0,
++        "coverageRatio": null,
++        "lowCoverage": true,
++        "riskScoreWithheld": true,
++        "note": "No third-party requests were captured for this site. This could mean the site genuinely loads no third-party trackers, or that capture failed (blocked automation, a JS-heavy page that didn't finish loading, etc.) -- verify manually before concluding either way."
++      }
++    },
++    {
++      "site": "https://craigslist.org",
++      "trackerCount": 0,
++      "topCategories": [],
++      "riskScore": null,
++      "flaggedOwners": [],
++      "distinctOwnerCount": 0,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 0,
++        "medium": 0,
++        "high": 0
++      },
++      "categoryBreakdown": {},
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 0,
++        "totalThirdPartyDomains": 0,
++        "coverageRatio": null,
++        "lowCoverage": true,
++        "riskScoreWithheld": true,
++        "note": "No third-party requests were captured for this site. This could mean the site genuinely loads no third-party trackers, or that capture failed (blocked automation, a JS-heavy page that didn't finish loading, etc.) -- verify manually before concluding either way."
++      }
++    },
++    {
++      "site": "https://www.propublica.org",
++      "trackerCount": 12,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "Analytics",
++        "Third-Party Analytics Marketing",
++        "Audience Measurement"
++      ],
++      "riskScore": 100,
++      "flaggedOwners": [
++        "Convert Insights Inc",
++        "Google LLC",
++        "Parsely, Inc.",
++        "Pickaxe LLC"
++      ],
++      "distinctOwnerCount": 6,
++      "highFingerprintingCount": 4,
++      "fingerprintingBreakdown": {
++        "none": 1,
++        "low": 4,
++        "medium": 3,
++        "high": 4
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 5,
++        "Advertising": 5,
++        "Analytics": 5,
++        "Audience Measurement": 3,
++        "Third-Party Analytics Marketing": 4,
++        "Online Payment": 1,
++        "CDN": 3,
++        "Tag Manager": 1,
++        "Embedded Content": 3,
++        "Action Pixels": 1
++      },
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 12,
++        "totalThirdPartyDomains": 12,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://basecamp.com",
++      "trackerCount": 1,
++      "topCategories": [],
++      "riskScore": null,
++      "flaggedOwners": [],
++      "distinctOwnerCount": 0,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 0,
++        "medium": 0,
++        "high": 0
++      },
++      "categoryBreakdown": {},
++      "unmatchedDomains": [
++        "37signals.com"
++      ],
++      "coverage": {
++        "matchedCount": 0,
++        "totalThirdPartyDomains": 1,
++        "coverageRatio": 0.0,
++        "lowCoverage": true,
++        "riskScoreWithheld": true,
++        "note": "Captured 1 third-party domain(s) but none were found in the Tracker Radar dataset. Risk score withheld rather than defaulted to 0 -- this is a dataset coverage gap, not evidence of a clean site."
++      }
++    },
++    {
++      "site": "https://daringfireball.net",
++      "trackerCount": 1,
++      "topCategories": [],
++      "riskScore": 2.3,
++      "flaggedOwners": [],
++      "distinctOwnerCount": 1,
++      "highFingerprintingCount": 0,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 1,
++        "medium": 0,
++        "high": 0
++      },
++      "categoryBreakdown": {},
++      "unmatchedDomains": [],
++      "coverage": {
++        "matchedCount": 1,
++        "totalThirdPartyDomains": 1,
++        "coverageRatio": 1.0,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "100% of captured third-party domains matched the dataset."
++      }
++    },
++    {
++      "site": "https://www.metafilter.com",
++      "trackerCount": 11,
++      "topCategories": [
++        "Ad Motivated Tracking",
++        "Advertising",
++        "CDN",
++        "Ad Fraud",
++        "Analytics"
++      ],
++      "riskScore": 98.6,
++      "flaggedOwners": [
++        "Google LLC"
++      ],
++      "distinctOwnerCount": 3,
++      "highFingerprintingCount": 5,
++      "fingerprintingBreakdown": {
++        "none": 0,
++        "low": 3,
++        "medium": 1,
++        "high": 5
++      },
++      "categoryBreakdown": {
++        "Ad Motivated Tracking": 6,
++        "Advertising": 6,
++        "Ad Fraud": 1,
++        "Analytics": 1,
++        "Online Payment": 1,
++        "CDN": 2,
++        "Embedded Content": 1
++      },
++      "unmatchedDomains": [
++        "cloudfront.net",
++        "googleapis.com"
++      ],
++      "coverage": {
++        "matchedCount": 9,
++        "totalThirdPartyDomains": 11,
++        "coverageRatio": 0.82,
++        "lowCoverage": false,
++        "riskScoreWithheld": false,
++        "note": "82% of captured third-party domains matched the dataset."
++      }
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/website/check.html b/website/check.html
+new file mode 100644
+index 0000000..80cf72e
+--- /dev/null
++++ b/website/check.html
+@@ -0,0 +1,74 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Check a URL — ClipPri</title>
++    <link rel="stylesheet" href="assets/style.css">
++</head>
++<body>
++    <header>
++        <div class="container">
++            <h1>ClipPri</h1>
++            <nav>
++                <a href="index.html">Home</a>
++                <a href="check.html">Check a URL</a>
++                <a href="history.html">Scan History</a>
++                <a href="mission.html">Mission</a>
++                <a href="privacy.html">Privacy</a>
++            </nav>
++        </div>
++    </header>
++    <main>
++        <div class="container">
++            <div class="tool-page">
++                <h2>Check a Site</h2>
++                <p class="tool-intro">
++                    A lighter version of the extension's scan, without installing anything. Paste a
++                    domain to see what we can show from your browser alone.
++                </p>
++
++                <div class="on-device-note">
++                    <span class="icon" aria-hidden="true">🔒</span>
++                    <p>
++                        <strong>Nothing you type here is sent to us.</strong> This page makes at most one
++                        direct request from your browser to ToS;DR's public API (never through any server
++                        of ours) and looks up the domain in a small dataset bundled with this page. See
++                        <a href="privacy.html">Privacy Policy</a> for exact detail, and note the scope
++                        limits below -- this page can't do everything the extension can.
++                    </p>
++                </div>
++
++                <form id="check-form" class="check-form">
++                    <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" />
++                    <button type="submit" class="btn btn-primary">Check</button>
++                </form>
++
++                <div id="status" class="status-line"></div>
++                <div id="result"></div>
++
++                <p class="muted" style="margin-top:2.5rem;">
++                    <strong>Scope limits, honestly stated:</strong> this page can only show a ToS;DR
++                    community rating (for sites ToS;DR has reviewed) and Observed data for a small,
++                    curated set of sites (the same ~20-site snapshot the extension falls back to). It
++                    cannot fetch and locally scan an arbitrary site's actual policy text the way the
++                    extension does -- browsers block a plain webpage from fetching another site's pages
++                    directly (the extension can, via a permission only an installed extension can
++                    request). For a full scan of any site, including live tracker detection,
++                    <a href="https://github.com/Tempestous15/privacy_policy_tracker/tree/main/extension" target="_blank" rel="noopener">get the extension</a>.
++                </p>
++            </div>
++        </div>
++    </main>
++    <footer>
++        <div class="container">
++            <a href="mission.html">Our Mission</a> |
++            <a href="privacy.html">Privacy Policy</a>
++            <br>
++            ClipPri
++        </div>
++    </footer>
++    <script src="assets/tracker-snapshot-lookup.js"></script>
++    <script src="assets/check.js"></script>
++</body>
++</html>
+diff --git a/website/history.html b/website/history.html
+new file mode 100644
+index 0000000..7fe3bb9
+--- /dev/null
++++ b/website/history.html
+@@ -0,0 +1,59 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Scan History — ClipPri</title>
++    <link rel="stylesheet" href="assets/style.css">
++</head>
++<body>
++    <header>
++        <div class="container">
++            <h1>ClipPri</h1>
++            <nav>
++                <a href="index.html">Home</a>
++                <a href="check.html">Check a URL</a>
++                <a href="history.html">Scan History</a>
++                <a href="mission.html">Mission</a>
++                <a href="privacy.html">Privacy</a>
++            </nav>
++        </div>
++    </header>
++    <main>
++        <div class="container">
++            <div class="tool-page">
++                <h2>Scan History</h2>
++                <p class="tool-intro">
++                    Sites you've checked with the ClipPri extension, pulled directly from the extension's
++                    own local storage on this device.
++                </p>
++
++                <div class="on-device-note">
++                    <span class="icon" aria-hidden="true">🔒</span>
++                    <p>
++                        <strong>This page never leaves your device.</strong> If the ClipPri extension is
++                        installed, this page asks it — directly, browser-to-extension, on this machine only
++                        — for the list of sites you've saved. Nothing is sent to any server, including ours;
++                        we don't have one. See <a href="privacy.html">Privacy Policy</a> for the exact
++                        mechanism.
++                    </p>
++                </div>
++
++                <div id="status" class="status-line">Checking for the ClipPri extension…</div>
++                <div id="history-list"></div>
++            </div>
++        </div>
++    </main>
++    <footer>
++        <div class="container">
++            <a href="mission.html">Our Mission</a> |
++            <a href="privacy.html">Privacy Policy</a>
++            <br>
++            ClipPri
++        </div>
++    </footer>
++    <script src="assets/redflags-engine.js"></script>
++    <script src="assets/extension-bridge.js"></script>
++    <script src="assets/history.js"></script>
++</body>
++</html>
+diff --git a/website/index.html b/website/index.html
+index ea3c3d8..12f6f75 100644
+--- a/website/index.html
++++ b/website/index.html
+@@ -12,6 +12,8 @@
+             <h1>ClipPri</h1>
+             <nav>
+                 <a href="index.html">Home</a>
++                <a href="check.html">Check a URL</a>
++                <a href="history.html">Scan History</a>
+                 <a href="mission.html">Mission</a>
+                 <a href="privacy.html">Privacy</a>
+             </nav>
+diff --git a/website/mission.html b/website/mission.html
+index f33749a..fbf77b0 100644
+--- a/website/mission.html
++++ b/website/mission.html
+@@ -12,6 +12,8 @@
+             <h1>ClipPri</h1>
+             <nav>
+                 <a href="index.html">Home</a>
++                <a href="check.html">Check a URL</a>
++                <a href="history.html">Scan History</a>
+                 <a href="mission.html">Mission</a>
+                 <a href="privacy.html">Privacy</a>
+             </nav>
+diff --git a/website/privacy.html b/website/privacy.html
+index 3ac3d98..ab771d2 100644
+--- a/website/privacy.html
++++ b/website/privacy.html
+@@ -12,6 +12,8 @@
+             <h1>ClipPri</h1>
+             <nav>
+                 <a href="index.html">Home</a>
++                <a href="check.html">Check a URL</a>
++                <a href="history.html">Scan History</a>
+                 <a href="mission.html">Mission</a>
+                 <a href="privacy.html">Privacy</a>
+             </nav>
+@@ -70,6 +72,42 @@
+                     files, not a request containing any policy text or browsing data.
+                 </p>
+ 
++                <h3>The website: scan history and URL check</h3>
++                <p>
++                    Two pages on this website talk to data outside this static site's own files, and it's
++                    worth being precise about exactly what that means.
++                </p>
++                <ul>
++                    <li>
++                        <strong><a href="history.html">Scan History</a></strong> asks the ClipPri extension,
++                        if it's installed, for the list of sites you've saved -- using Chrome's
++                        <code>externally_connectable</code> messaging API. This is a same-device,
++                        browser-internal message between this page's JavaScript and the extension running in
++                        the same browser; it is not a network request, and nothing about it reaches any
++                        server, including ours. The extension only accepts this message from this
++                        website's own address (configured in the extension's <code>manifest.json</code>) --
++                        no other website can ask it for this.
++                    </li>
++                    <li>
++                        <strong><a href="check.html">Check a URL</a></strong> makes a direct request from
++                        your browser to the public <a href="https://tosdr.org/">ToS;DR</a> API for a
++                        community rating (same endpoint and same "goes to ToS;DR, not to us" note as the
++                        extension -- see above), and looks up the domain you typed against a small bundled
++                        dataset shipped as a static file with this website. Neither of those touches a
++                        server of ours. This page cannot fetch and scan an arbitrary site's actual policy
++                        text the way the extension does -- that requires a permission only an installed
++                        browser extension can hold, so this page's local-classifier scan is limited to
++                        sites already in the bundled dataset. See the page itself for the exact scope.
++                    </li>
++                </ul>
++                <p>
++                    Neither page adds a server, a database, or any logging on our side -- this website is
++                    still exactly what "What we don't do" (below) describes. If a future version needs a
++                    server-side component for either feature (for example, to work around a browser
++                    restriction), that would be a real architecture change, and this policy will say so
++                    explicitly before it ships.
++                </p>
++
+                 <h3>What we don't do</h3>
+                 <ul>
+                     <li>No accounts, no sign-up, no login</li>
+-- 
+2.34.1
+

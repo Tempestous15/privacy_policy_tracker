@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan History — ClipPri</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>ClipPri</h1>
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="check.html">Check a URL</a>
+                <a href="history.html">Scan History</a>
+                <a href="mission.html">Mission</a>
+                <a href="privacy.html">Privacy</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <div class="container">
+            <div class="tool-page">
+                <h2>Scan History</h2>
+                <p class="tool-intro">
+                    Sites you've checked with the ClipPri extension, pulled directly from the extension's
+                    own local storage on this device.
+                </p>
+
+                <div class="on-device-note">
+                    <span class="icon" aria-hidden="true">🔒</span>
+                    <p>
+                        <strong>This page never leaves your device.</strong> If the ClipPri extension is
+                        installed, this page asks it — directly, browser-to-extension, on this machine only
+                        — for the list of sites you've saved. Nothing is sent to any server, including ours;
+                        we don't have one. See <a href="privacy.html">Privacy Policy</a> for the exact
+                        mechanism.
+                    </p>
+                </div>
+
+                <div id="status" class="status-line">Checking for the ClipPri extension…</div>
+                <div id="history-list"></div>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            <a href="mission.html">Our Mission</a> |
+            <a href="privacy.html">Privacy Policy</a>
+            <br>
+            ClipPri
+        </div>
+    </footer>
+    <script src="assets/redflags-engine.js"></script>
+    <script src="assets/extension-bridge.js"></script>
+    <script src="assets/history.js"></script>
+</body>
+</html>
