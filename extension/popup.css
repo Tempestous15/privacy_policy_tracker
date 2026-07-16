@@ -1,36 +1,53 @@
+/* ClipPri popup theme (extUI branch). Same warm cream/brown palette the
+   website already uses (website/assets/style.css) -- this formalizes it
+   into a fuller token set (spacing, shadow, two badge sizes) rather than
+   introducing a second, unrelated look. See README.md "extUI redesign"
+   for the structural rationale (tabs + lazy-expand saved list) behind
+   the accompanying popup.html/popup.js changes. */
 :root {
   --surface: #fffdf7;
   --card: #f7f1e6;
+  --card-hover: #f1e8d8;
   --border: #e0d5c5;
+  --border-strong: #cbb99e;
   --text: #2c2117;
   --text-muted: #8a7b6b;
   --brown-dark: #4a3728;
+  --brown-mid: #7a6352;
   --accent: #8b6f4e;
   --accent-hover: #6e5640;
-  --radius: 10px;
+  --danger: #a33322;
+  --radius: 12px;
   --radius-sm: 8px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(74, 55, 40, 0.06);
+  --shadow-card: 0 1px 3px rgba(74, 55, 40, 0.08);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
 }
 
 * { box-sizing: border-box; }
 
 body {
-  width: 340px;
+  width: 380px;
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--surface);
 }
 
+/* ---------- Header + tabs (replaces the old single-scroll layout) ----------
+   Both the header and tab bar sit outside the scrolling region, so
+   switching between "This Site" and "Saved" never requires re-finding
+   your scroll position -- see popup.html. */
 header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
-}
-
-header .logo-mark {
-  display: block;
 }
 
 header h1 {
@@ -38,42 +55,120 @@ header h1 {
   font-weight: 700;
   color: var(--brown-dark);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.tab {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  padding: 0.6rem var(--space-2);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+.tab:hover { background: var(--card-hover); color: var(--brown-dark); }
+.tab.active { color: var(--brown-dark); border-bottom-color: var(--brown-dark); }
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  color: var(--brown-dark);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.tab.active .tab-count { background: var(--brown-dark); color: var(--surface); }
+
 main {
-  padding: 1rem;
-  max-height: 480px;
+  max-height: 520px;
+  overflow: hidden;
+}
+.tab-panel {
+  display: none;
+  padding: var(--space-4);
+  max-height: 520px;
   overflow-y: auto;
 }
+.tab-panel.active { display: block; }
 
 .screen.hidden, .hidden { display: none !important; }
 
-.hint { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
+.hint { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 var(--space-3); }
 .muted { color: var(--text-muted); font-size: 0.85rem; }
+
+/* ---------- Current-site identity row (favicon + host) ---------- */
+.site-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.site-favicon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.site-favicon img { width: 16px; height: 16px; }
+.site-host {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--brown-dark);
+  margin: 0;
+  word-break: break-word;
+}
 
 input {
   width: 100%;
   padding: 0.55rem 0.65rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
+  background: var(--surface);
 }
 
 button {
   width: 100%;
-  padding: 0.55rem 0.65rem;
+  padding: 0.6rem 0.65rem;
   background: var(--brown-dark);
   color: var(--surface);
   border: none;
   border-radius: var(--radius-sm);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   cursor: pointer;
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--space-2);
+  transition: background 0.15s;
 }
-
 button:hover { background: var(--accent-hover); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button:active:not(:disabled) { transform: translateY(0.5px); }
 
 .link-btn {
   width: auto;
@@ -85,72 +180,192 @@ button:hover { background: var(--accent-hover); }
 }
 .link-btn:hover { background: none; color: var(--brown-dark); }
 
-.error { color: #a33; font-size: 0.85rem; }
+.error { color: var(--danger); font-size: 0.85rem; }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.85rem;
-  margin-bottom: 0.85rem;
+  box-shadow: var(--shadow-card);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
 }
-
 .card h2 {
   font-size: 0.9rem;
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-2);
   color: var(--brown-dark);
 }
 
+/* ---------- Risk badges ----------
+   Slightly larger + bolder than before, for at-a-glance legibility --
+   this is the one thing a user should be able to read without stopping
+   to focus. Colors unchanged (already accessible pastels), just given
+   more visual weight. */
 .risk-badge {
-  display: inline-block;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  margin-bottom: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.28rem 0.65rem;
+  border-radius: var(--radius-pill);
+  margin-bottom: var(--space-2);
 }
-.risk-low { background: #dff0d8; }
-.risk-medium { background: #fcf3cf; }
-.risk-high { background: #f8d7da; }
-.risk-unknown { background: #e2e2e2; }
-.tosdr-badge { background: #dbe9f8; margin-left: 0.4rem; }
+.risk-low { background: #dff0d8; color: #2f5c26; }
+.risk-medium { background: #fcf3cf; color: #7a5f0a; }
+.risk-high { background: #f8d7da; color: #7a1f28; }
+.risk-unknown { background: #e2e2e2; color: #4a4a4a; }
+.tosdr-badge { background: #dbe9f8; color: #1f4e7a; margin-left: 0.4rem; }
+
+/* ---------- At-a-glance dual badge row ----------
+   Shows both channels' badges side by side, before either channel's
+   detail section -- a compact overview, never a blended score (still two
+   distinct badges/values; see risk_model.js's "never combine" rule).
+   New in extUI: gives an instant read on a site without scrolling into
+   either section. */
+.glance-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.glance-col {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  text-align: center;
+}
+.glance-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+.glance-col .risk-badge { margin-bottom: 0; }
 
 .summary-text { font-size: 0.85rem; margin: 0.3rem 0; }
 
+/* ---------- Collapsible detail sections ----------
+   Closed by default (extUI change -- red flags used to render
+   force-opened via details.open = true, which was a big part of the
+   "wall of text" problem). A one-line teaser (below) shows the top
+   finding even while collapsed, so nothing important is hidden, just
+   not force-expanded. */
 details.summary-section {
   font-size: 0.82rem;
-  margin-bottom: 0.3rem;
+  margin-bottom: var(--space-2);
 }
-details.summary-section summary { cursor: pointer; font-weight: 600; }
-details.summary-section ul { margin: 0.3rem 0 0.3rem 1rem; padding: 0; }
-details.summary-section.red-flags { color: #a33; }
+details.summary-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.3rem 0;
+  list-style: none;
+}
+details.summary-section summary::-webkit-details-marker { display: none; }
+details.summary-section summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.35rem;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+details.summary-section[open] summary::before { transform: rotate(90deg); }
+details.summary-section ul { margin: 0.3rem 0 0.3rem 1.35rem; padding: 0; }
+details.summary-section.red-flags summary { color: var(--danger); }
+.detail-teaser { font-size: 0.8rem; color: var(--text-muted); margin: 0.15rem 0 0.4rem 1.35rem; }
 
-.ai-summary-block { margin-top: 0.5rem; }
+.ai-summary-block { margin-top: var(--space-2); }
 .ai-summary-btn { margin-bottom: 0.3rem; }
 .ai-summary-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
 
+/* ---------- Saved sites: compact rows, lazy-expand ----------
+   Previously each saved site rendered its FULL result inline (banner +
+   both channels + AI summary button) permanently, for every saved site,
+   every time the popup opened -- the main cause of "scrolling is worse
+   than reading the policy." Now each row shows only domain + date +
+   both risk badges (cheap to compute, already stored/cached), and the
+   full breakdown renders lazily on first expand -- see popup.js. */
 .saved-item {
-  border-top: 1px solid var(--border);
-  padding-top: 0.6rem;
-  margin-top: 0.6rem;
+  border-bottom: 1px solid var(--border);
 }
-.saved-item:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.saved-item:last-child { border-bottom: none; }
+.saved-row {
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: var(--space-3) 0.15rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+.saved-row:hover { background: var(--card-hover); }
+.saved-row-main { flex: 1; min-width: 0; }
+.saved-row-main strong {
+  display: block;
+  font-size: 0.87rem;
+  color: var(--brown-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.saved-row-date { font-size: 0.72rem; color: var(--text-muted); }
+.saved-row-badges { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.saved-row-badges .risk-badge {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.68rem;
+  margin-bottom: 0;
+}
+.saved-row-chevron {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+/* .saved-item is a native <details> element -- open/closed visibility of
+   everything after <summary> (.saved-row) is handled by the browser for
+   free; this just rotates the chevron and hides the default marker to
+   match the collapsible style used elsewhere (see
+   details.summary-section above). */
+.saved-item summary { list-style: none; }
+.saved-item summary::-webkit-details-marker { display: none; }
+.saved-item[open] .saved-row-chevron { transform: rotate(90deg); }
+.saved-item-detail {
+  padding: 0 0.15rem var(--space-3);
+}
+
 .saved-item-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.saved-item-header strong { font-size: 0.85rem; }
 .remove-btn {
   width: auto;
   background: none;
-  color: #a33;
+  color: var(--danger);
   padding: 0;
   font-size: 0.78rem;
   font-weight: 500;
   margin: 0;
 }
 .remove-btn:hover { background: none; text-decoration: underline; }
+
+.empty-state {
+  text-align: center;
+  padding: 2rem var(--space-3);
+  color: var(--text-muted);
+}
+.empty-state .empty-icon { font-size: 1.6rem; margin-bottom: var(--space-2); }
+.empty-state p { margin: 0; font-size: 0.85rem; }
 
 /* --- Disclosed vs. Observed channels (siteBehaviorIntegration) ---
    Two clearly separate channels, never a blended score -- see
@@ -161,16 +376,18 @@ details.summary-section.red-flags { color: #a33; }
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-muted);
-  margin: 0.7rem 0 0.35rem;
+  margin: 0.9rem 0 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
 }
-.channel-heading:first-of-type { margin-top: 0.3rem; }
+.channel-heading:first-of-type { margin-top: 0.3rem; padding-top: 0; border-top: none; }
 
 .channel-disagreement-banner {
   background: #fcf3cf;
   border: 1px solid #e3c95c;
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.7rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: var(--space-2);
   font-size: 0.82rem;
 }
 .channel-disagreement-banner strong {
@@ -186,7 +403,7 @@ details.summary-section.red-flags { color: #a33; }
   border: 1px solid #e3a3a9;
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.7rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
   font-size: 0.82rem;
 }
 .observed-flagged strong { display: block; margin-bottom: 0.3rem; color: var(--brown-dark); }
