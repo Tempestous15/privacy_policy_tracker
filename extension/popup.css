@@ -466,15 +466,70 @@ details.summary-section.red-flags summary { color: var(--danger); }
 }
 .channel-disagreement-banner p { margin: 0; }
 
-/* --- Observed-channel findings (siteBehaviorIntegration) --- */
-.observed-flagged {
-  background: #f8d7da;
-  border: 1px solid #e3a3a9;
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.7rem;
-  margin-bottom: var(--space-2);
-  font-size: 0.82rem;
+/* ---------- Inline glossary (Observed round 3) ----------
+   Jargon terms (fingerprinting, third-party domain, high-risk,
+   ad/tracking-related, infrastructure) get a native <abbr title> instead
+   of a permanent glossary block -- hover (or a screen reader announcing
+   the title) reveals a plain-language definition. Costs zero visible
+   space for anyone who already knows the term; one hover for anyone who
+   doesn't. The dotted underline is the only visual hint it's there. */
+abbr[title] {
+  text-decoration: none;
+  border-bottom: 1px dotted var(--border-strong);
+  cursor: help;
+  color: var(--brown-mid);
 }
-.observed-flagged strong { display: block; margin-bottom: 0.3rem; color: var(--brown-dark); }
-.observed-flagged ul { margin: 0.3rem 0 0 1rem; padding: 0; }
-.observed-flagged li { margin-bottom: 0.3rem; }
+
+/* ---------- Observed: chip breakdown (round 4) ----------
+   Replaces three separate always-collapsed <details> (one per bucket)
+   with one row of colored pills -- the full categorical picture at a
+   glance, zero clicks required. Same red/amber/green language as the
+   risk badges above, so this reads as one consistent system rather than
+   a new one invented just for this row. This is the single biggest
+   change from round 3: fewer decision points (was up to three toggles to
+   consider opening, now the breakdown needs none), which is what was
+   actually causing people to glaze over -- not just text length. */
+.observed-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.4rem;
+}
+.observed-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.28rem 0.65rem;
+  border-radius: var(--radius-pill);
+  line-height: 1.2;
+}
+.observed-chip--high { background: #f8d7da; color: #7a1f28; }
+.observed-chip--medium { background: #fcf3cf; color: #7a5f0a; }
+.observed-chip--low { background: #dff0d8; color: #2f5c26; }
+
+/* ---------- Observed: single detail toggle (round 4) ----------
+   Everything that used to be three-plus separate <details> (one per
+   bucket, plus unmatched domains) now lives inside ONE
+   "See which trackers were found" toggle, organized by mini-headers
+   (.observed-subgroup) instead of separate top-level collapsibles. One
+   decision to open, not several. */
+.observed-subgroup { margin: 0.5rem 0; }
+.observed-subgroup:first-of-type { margin-top: 0.3rem; }
+.observed-subgroup:last-of-type { margin-bottom: 0; }
+.observed-subgroup-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+  color: var(--brown-dark);
+}
+.observed-subgroup--high .observed-subgroup-heading { color: var(--danger); }
+.observed-subgroup ul { margin: 0 0 0 1.2rem; padding: 0; font-size: 0.8rem; }
+.observed-subgroup li { margin-bottom: 0.3rem; }
+.observed-subgroup li:last-child { margin-bottom: 0; }
+
+.observed-captured-note {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}

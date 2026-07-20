@@ -181,20 +181,123 @@ function renderTosdrResult(container, tosdrSettled) {
 // "what this site does with your data" (we can't observe that; only
 // technically-detectable network behavior). Never blocks the Disclosed
 // section: failures/misses here are shown inline only.
+// Observed round 3 (user feedback: "third-party domain," "fingerprinting,"
+// and "high-risk" aren't self-explanatory, but spelling them out in the
+// always-visible text would bring back the "too much text" problem for
+// anyone who already knows them). Plain-language definitions live here,
+// once, and get attached to the jargon term itself via a native
+// <abbr title> -- hovering reveals the definition; anyone who already
+// knows the term never has to see it.
+const TERM_GLOSSARY = {
+  thirdParty:
+    "A server run by a different company than the one whose site you're visiting -- often used for ads, " +
+    "analytics, or tracking you across sites.",
+  fingerprinting:
+    "Identifying your device using small technical details (screen size, fonts, timezone, and similar) " +
+    "instead of cookies -- harder to block or clear than a cookie.",
+  highRisk:
+    "Flagged by our tracker database for aggressive or opaque data-collection behavior -- a different meaning " +
+    "of \"risk\" than the Disclosed section above, which is about the policy text.",
+  adTracking: "Mainly used to target ads or measure ad performance based on what you do.",
+  infrastructure:
+    "Mostly technical plumbing (like loading images or scripts faster) -- not primarily built for tracking, " +
+    "though it can still see that you visited.",
+};
+
+// Wraps a jargon term in a native <abbr title> -- hover (or a screen
+// reader announcing the title) reveals the plain-language definition,
+// with zero extra space taken up for anyone who doesn't need it.
+function _abbr(text, title) {
+  const el = document.createElement("abbr");
+  el.textContent = text;
+  el.title = title;
+  return el;
+}
+
+// Appends a mix of plain strings and { text, title } glossary terms into
+// `parent` -- lets a heading/sentence be built out of ordinary text with
+// one or two words made hoverable, instead of a separate glossary block.
+function _appendMixed(parent, parts) {
+  for (const part of parts) {
+    if (typeof part === "string") {
+      parent.appendChild(document.createTextNode(part));
+    } else {
+      parent.appendChild(_abbr(part.text, part.title));
+    }
+  }
+}
+
+// Observed round 2 (user feedback: too much text at once, not explainable
+// enough): this used to concatenate EVERY matched category's full-sentence
+// explanation plus the fingerprinting note into one long string per
+// tracker -- for a tracker matched to 2-3 categories, that's 2-3 full
+// sentences per bullet, times however many trackers were found. Now picks
+// ONE explanation per tracker: the fingerprinting note if it's heavy (the
+// most specific, most actionable signal), otherwise just the first
+// matched category. Enough to say why it's listed, not everything Tracker
+// Radar knows about it.
 function _explainMatchedDomain(entry) {
   const label = entry.owner ? `${entry.domain} (${entry.owner})` : entry.domain;
-  const explanations = [];
-  for (const cat of entry.categories || []) {
-    const text = window.TrackerCategoryGlossary && TrackerCategoryGlossary.explainCategory(cat);
-    explanations.push(text || cat);
+  const categories = entry.categories || [];
+  let detail = null;
+  if (entry.fingerprinting >= 2 && window.TrackerCategoryGlossary) {
+    detail = TrackerCategoryGlossary.explainFingerprinting(entry.fingerprinting);
   }
-  const fpExplain =
-    entry.fingerprinting >= 2 && window.TrackerCategoryGlossary
-      ? TrackerCategoryGlossary.explainFingerprinting(entry.fingerprinting)
-      : null;
-  const parts = [...new Set(explanations)];
-  if (fpExplain) parts.push(fpExplain);
-  return { label, detail: parts.join(" ") };
+  if (!detail && categories.length && window.TrackerCategoryGlossary) {
+    detail = TrackerCategoryGlossary.explainCategory(categories[0]);
+  }
+  return { label, detail };
+}
+
+// Observed round 4 (user feedback after round 3: still not intuitive or
+// good-looking, still an overload people would glaze over). The real
+// problem wasn't text length anymore -- it was the NUMBER of separate
+// decision points. Three independent <details> toggles (one per bucket)
+// meant a user had to decide three separate times whether something was
+// worth opening, just to learn the shape of what was found. This round
+// replaces that with: one row of always-visible colored chips (the full
+// categorical breakdown, zero clicks), one named callout for the single
+// most-concerning tracker (if any), and exactly ONE "see details" toggle
+// for anyone who wants the full per-domain list. Same information, one
+// decision instead of three.
+
+// A small colored pill showing a count + label -- e.g. "2 concerning".
+// Reuses the same red/amber/green palette as the risk badges elsewhere
+// in this popup (.risk-high/.risk-medium/.risk-low) so the whole popup
+// reads as one consistent color language rather than introducing a new
+// one just for this row.
+function _observedChip(count, label, severity) {
+  const chip = document.createElement("span");
+  chip.className = `observed-chip observed-chip--${severity}`;
+  chip.textContent = `${count} ${label}`;
+  return chip;
+}
+
+// Appends one labelled sub-section (not its own <details> -- just a
+// heading + list) into an already-open parent, e.g. the single outer
+// "See which trackers were found" toggle. `headingParts` follows the
+// _appendMixed contract so jargon in the heading can carry a hover
+// definition.
+function _appendObservedSubgroup(parent, entries, headingParts, modifierClass) {
+  if (!entries.length) return;
+  const sub = document.createElement("div");
+  sub.className = modifierClass ? `observed-subgroup ${modifierClass}` : "observed-subgroup";
+  const heading = document.createElement("p");
+  heading.className = "observed-subgroup-heading";
+  _appendMixed(heading, [...headingParts, ` (${entries.length})`]);
+  sub.appendChild(heading);
+  const ul = document.createElement("ul");
+  for (const entry of entries) {
+    const { label, detail } = _explainMatchedDomain(entry);
+    const li = document.createElement("li");
+    const strong = document.createElement("strong");
+    strong.textContent = label;
+    li.appendChild(strong);
+    if (detail) li.appendChild(document.createTextNode(" -- " + detail));
+    ul.appendChild(li);
+  }
+  sub.appendChild(ul);
+  parent.appendChild(sub);
 }
 
 // ---------- Observed: Tracker Radar ----------
@@ -226,83 +329,127 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
   const level = SiteRiskModel.observedLevelFromRiskScore(profile.riskScore);
   container.appendChild(riskBadge(level));
 
-  const summary = document.createElement("p");
-  summary.className = "summary-text";
-  summary.textContent =
-    profile.trackerCount === 0
-      ? "No third-party requests detected."
-      : `${profile.trackerCount} third-party domain(s) contacted across ${profile.distinctOwnerCount} compan${profile.distinctOwnerCount === 1 ? "y" : "ies"}.`;
-  container.appendChild(summary);
-
   const matchedDomains = profile.matchedDomains || [];
   const flagged = matchedDomains.filter((d) => d.bucket === "fingerprinting_heavy");
+  const adTracking = matchedDomains.filter((d) => d.bucket === "ad_tracking");
+  const infra = matchedDomains.filter((d) => d.bucket === "cdn_functional" || d.bucket === "other");
+
+  // Plain-English first: the sentence itself explains the concept ("other
+  // companies' servers... in the background") without requiring anyone to
+  // already know the term "third-party." The term is folded in
+  // parenthetically, hoverable for anyone who wants the sharper
+  // definition or just wants to learn the vocabulary.
+  const summary = document.createElement("p");
+  summary.className = "summary-text";
+  if (profile.trackerCount === 0) {
+    summary.textContent = "Nothing from another company loaded quietly in the background on this page.";
+  } else {
+    _appendMixed(summary, [
+      `${profile.trackerCount} other compan${profile.distinctOwnerCount === 1 ? "y's" : "ies'"} servers ` +
+        `(often called `,
+      { text: "third-party", title: TERM_GLOSSARY.thirdParty },
+      ` domains) quietly loaded in the background -- separate from what the site's own policy says.`,
+    ]);
+  }
+  container.appendChild(summary);
+
+  // The full categorical breakdown, always visible, zero clicks required
+  // -- see the round-4 comment above _observedChip.
+  const chipRow = document.createElement("div");
+  chipRow.className = "observed-chip-row";
+  if (flagged.length) chipRow.appendChild(_observedChip(flagged.length, "concerning", "high"));
+  if (adTracking.length) chipRow.appendChild(_observedChip(adTracking.length, "ad & tracking", "medium"));
+  if (infra.length) chipRow.appendChild(_observedChip(infra.length, "other / infra", "low"));
+  if (chipRow.children.length) container.appendChild(chipRow);
+
+  // Names the single most-notable tracker without requiring the toggle
+  // below to be opened -- just the name, not the explanation (that's one
+  // click away), so this stays one short line.
   if (flagged.length) {
-    const flagBlock = document.createElement("div");
-    flagBlock.className = "observed-flagged";
-    const heading = document.createElement("strong");
-    heading.textContent = `⚠️ ${flagged.length} tracker${flagged.length === 1 ? "" : "s"} flagged for fingerprinting-heavy or high-risk behavior`;
-    flagBlock.appendChild(heading);
-    const ul = document.createElement("ul");
-    for (const entry of flagged) {
-      const { label, detail } = _explainMatchedDomain(entry);
-      const li = document.createElement("li");
-      const strong = document.createElement("strong");
-      strong.textContent = label;
-      li.appendChild(strong);
-      if (detail) li.appendChild(document.createTextNode(" -- " + detail));
-      ul.appendChild(li);
-    }
-    flagBlock.appendChild(ul);
-    container.appendChild(flagBlock);
+    const { label } = _explainMatchedDomain(flagged[0]);
+    const callout = document.createElement("p");
+    callout.className = "detail-teaser";
+    callout.textContent =
+      flagged.length === 1 ? `Most concerning: ${label}` : `Most concerning: ${label} (+${flagged.length - 1} more)`;
+    container.appendChild(callout);
   }
 
-  const otherMatched = matchedDomains.filter((d) => d.bucket !== "fingerprinting_heavy");
-  if (otherMatched.length) {
-    const details = document.createElement("details");
-    details.className = "summary-section";
-    const summaryEl = document.createElement("summary");
-    summaryEl.textContent = `${otherMatched.length} other tracker${otherMatched.length === 1 ? "" : "s"} detected`;
-    details.appendChild(summaryEl);
-    const ul = document.createElement("ul");
-    for (const entry of otherMatched) {
-      const { label, detail } = _explainMatchedDomain(entry);
-      const li = document.createElement("li");
-      li.textContent = detail ? `${label} -- ${detail}` : label;
-      ul.appendChild(li);
-    }
-    details.appendChild(ul);
-    container.appendChild(details);
-  }
-
-  if (profile.unmatchedDomains && profile.unmatchedDomains.length) {
-    const details = document.createElement("details");
-    details.className = "summary-section";
-    const summaryEl = document.createElement("summary");
-    summaryEl.textContent = `${profile.unmatchedDomains.length} more domain(s) contacted, not yet in our tracker index`;
-    details.appendChild(summaryEl);
-    const ul = document.createElement("ul");
-    for (const d of profile.unmatchedDomains) {
-      const li = document.createElement("li");
-      li.textContent = d;
-      ul.appendChild(li);
-    }
-    details.appendChild(ul);
-    container.appendChild(details);
-    if (profile.coverage && profile.coverage.riskScoreWithheld) {
-      const note = document.createElement("p");
-      note.className = "muted";
-      note.textContent = "Not enough of what was contacted matched our tracker index to score confidently -- the list above is everything real that was seen, even though we cannot yet say what most of it does.";
-      container.appendChild(note);
-    }
-  }
-
-  const capturedNote = document.createElement("p");
-  capturedNote.className = "muted";
+  const hasDetail = matchedDomains.length > 0 || (profile.unmatchedDomains && profile.unmatchedDomains.length > 0);
   const isLive = typeof profile.snapshotSource === "string" && profile.snapshotSource.startsWith("live capture");
-  capturedNote.textContent = isLive
-    ? "Detected live from this tab's current page load -- not a continuous monitor; reload/revisit to refresh."
-    : `Detected in a scan on ${profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan"} -- not a live monitor of this tab.`;
-  container.appendChild(capturedNote);
+  const capturedText = isLive
+    ? "Detected live from this tab's current page load."
+    : `Detected in a scan on ${profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan"}.`;
+
+  if (hasDetail) {
+    // One toggle for everything else -- individual trackers grouped under
+    // mini-headers, unmatched domains, and the capture-time caption, all
+    // inside the single "See which trackers were found" disclosure
+    // instead of three-plus separate top-level ones.
+    const details = document.createElement("details");
+    details.className = "summary-section";
+    const summaryEl = document.createElement("summary");
+    summaryEl.textContent = "See which trackers were found";
+    details.appendChild(summaryEl);
+
+    _appendObservedSubgroup(
+      details,
+      flagged,
+      ["⚠️ ", { text: "Concerning", title: TERM_GLOSSARY.highRisk }],
+      "observed-subgroup--high"
+    );
+    _appendObservedSubgroup(
+      details,
+      adTracking,
+      ["🎯 ", { text: "Ad & tracking", title: TERM_GLOSSARY.adTracking }],
+      "observed-subgroup--medium"
+    );
+    _appendObservedSubgroup(
+      details,
+      infra,
+      ["🔧 ", { text: "Other / infrastructure", title: TERM_GLOSSARY.infrastructure }],
+      "observed-subgroup--low"
+    );
+
+    if (profile.unmatchedDomains && profile.unmatchedDomains.length) {
+      const sub = document.createElement("div");
+      sub.className = "observed-subgroup";
+      const heading = document.createElement("p");
+      heading.className = "observed-subgroup-heading";
+      heading.textContent = `❔ Not yet in our tracker index (${profile.unmatchedDomains.length})`;
+      sub.appendChild(heading);
+      if (profile.coverage && profile.coverage.riskScoreWithheld) {
+        const note = document.createElement("p");
+        note.className = "muted";
+        note.textContent =
+          "Not enough of what was contacted matched our tracker index to score confidently -- this list is " +
+          "everything real that was seen, even though we cannot yet say what most of it does.";
+        sub.appendChild(note);
+      }
+      const ul = document.createElement("ul");
+      for (const d of profile.unmatchedDomains) {
+        const li = document.createElement("li");
+        li.textContent = d;
+        ul.appendChild(li);
+      }
+      sub.appendChild(ul);
+      details.appendChild(sub);
+    }
+
+    const capturedNote = document.createElement("p");
+    capturedNote.className = "muted observed-captured-note";
+    capturedNote.textContent = capturedText;
+    details.appendChild(capturedNote);
+
+    container.appendChild(details);
+  } else {
+    // Nothing to expand -- the capture-time caption still matters (it's
+    // the "how fresh is this" context), just not tucked inside a toggle
+    // that would otherwise be empty.
+    const capturedNote = document.createElement("p");
+    capturedNote.className = "muted observed-captured-note";
+    capturedNote.textContent = capturedText;
+    container.appendChild(capturedNote);
+  }
 }
 
 // ---------- At-a-glance dual badge row ----------
