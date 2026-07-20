@@ -649,6 +649,102 @@ abbr[title] {
 }
 .protect-optout-link:hover { color: var(--brown-dark); }
 
+/* actionUI round 2: real blocking/cookie-clearing mechanics -- status
+   line, customize picker, and recommend-and-confirm cards. Same card
+   language as .protect-section throughout (no new visual system). */
+.protect-blocked-status { margin-bottom: 0.5rem; }
+.protect-blocked-status-line {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #2f5c26;
+  margin: 0 0 0.3rem;
+}
+.protect-unblock-btn {
+  width: auto;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--brown-dark);
+  border: 1px solid var(--border-strong);
+}
+.protect-unblock-btn:hover { background: var(--card-hover); }
+.protect-unblock-all-btn { margin-top: 0.3rem; }
+
+.protect-customize { margin-bottom: 0.5rem; font-size: 0.8rem; }
+.protect-customize-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--brown-dark);
+  list-style: none;
+}
+.protect-customize-summary::-webkit-details-marker { display: none; }
+.protect-customize-presets {
+  border: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+.protect-customize-presets legend {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0;
+  margin-bottom: 0.2rem;
+}
+.protect-preset-option, .protect-advanced-option {
+  display: block;
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+  cursor: pointer;
+}
+.protect-customize-advanced {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+}
+.protect-customize-advanced summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  list-style: none;
+}
+.protect-customize-advanced summary::-webkit-details-marker { display: none; }
+.protect-customize-advanced > label { margin-top: 0.35rem; }
+
+.protect-recommend-card {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  margin-top: 0.5rem;
+}
+.protect-recommend-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  margin: 0 0 0.25rem;
+}
+.protect-recommend-explain {
+  font-size: 0.78rem;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+.protect-recommend-actions { display: flex; gap: 0.4rem; }
+.protect-confirm-btn {
+  flex: 1;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.5rem;
+}
+.protect-decline-btn {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.protect-decline-btn:hover { background: var(--card-hover); }
+.protect-recommend-error { color: var(--danger); margin-top: 0.4rem; }
+
+
 /* Empty/good state (design spec) -- shown INSTEAD OF the card layout
    when trackerCount is exactly 0 and there's nothing unmatched either;
    see popup.js's renderObservedResult. Reuses the base .empty-state

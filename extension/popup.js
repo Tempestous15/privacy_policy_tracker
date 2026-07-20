@@ -387,12 +387,12 @@ function _topTrackersLine(groups, max = 3) {
 // window.TrackerRemediation (tracker_remediation.js) for classification --
 // this file only renders; it never re-derives which tier a tracker is in.
 //
-// IMPORTANT: manifest.json does not request the declarativeNetRequest
-// permission (see actionUI branch notes), so "Auto-fix" cannot actually
-// block network requests yet -- it is rendered honestly as a preview of
-// what a real block would cover, not a live block. Adding real blocking
-// later only requires wiring an actual declarativeNetRequest call in here;
-// the tier classification and UI already reflect the real breakdown.
+// actionUI round 2 (real mechanics): the auto-fix tier can now actually
+// recommend a real declarativeNetRequest block and a real tracker-cookie
+// clear (see tracker_blocking.js / tracker_cookies.js), each behind its
+// own explanation + confirm click -- never bundled together, never run on
+// render, never automatic just because a concern profile is set (see
+// concern_profiles.js: profiles only narrow what's *recommended*).
 function _uniqueOptOutLinks(flagAndLinkEntries) {
   const byUrl = new Map();
   for (const entry of flagAndLinkEntries) {
@@ -416,20 +416,283 @@ function _buildProtectResultTier(iconLabel, className, countLabel) {
   return wrap;
 }
 
-function _renderProtectResults(resultsSlot, matchedDomains) {
+// Small "here's what we recommend and why, confirm or decline" card --
+// shared shape for both the blocking recommendation and the cookie-clear
+// recommendation, since the product rule is the same for both: explain
+// specifically what will happen, require its own explicit confirm click,
+// never bundle two different actions behind one click. `onConfirm` is
+// awaited and expected to throw on failure (caught here and shown inline
+// rather than left as an unhandled rejection).
+function _buildRecommendCard({ icon, title, explanation, confirmLabel, onConfirm }) {
+  const card = document.createElement("div");
+  card.className = "protect-recommend-card";
+
+  const heading = document.createElement("p");
+  heading.className = "protect-recommend-title";
+  heading.textContent = `${icon} ${title}`;
+  card.appendChild(heading);
+
+  const explain = document.createElement("p");
+  explain.className = "protect-recommend-explain";
+  explain.textContent = explanation;
+  card.appendChild(explain);
+
+  const actions = document.createElement("div");
+  actions.className = "protect-recommend-actions";
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "protect-confirm-btn";
+  confirmBtn.textContent = confirmLabel;
+  const declineBtn = document.createElement("button");
+  declineBtn.type = "button";
+  declineBtn.className = "protect-decline-btn";
+  declineBtn.textContent = "Not now";
+  declineBtn.addEventListener("click", () => card.remove());
+  actions.appendChild(confirmBtn);
+  actions.appendChild(declineBtn);
+  card.appendChild(actions);
+
+  confirmBtn.addEventListener("click", async () => {
+    confirmBtn.disabled = true;
+    declineBtn.disabled = true;
+    confirmBtn.textContent = "Working…";
+    try {
+      await onConfirm();
+    } catch (err) {
+      const errEl = document.createElement("p");
+      errEl.className = "muted protect-recommend-error";
+      errEl.textContent = `Something went wrong: ${err && err.message ? err.message : err}`;
+      card.appendChild(errEl);
+      confirmBtn.disabled = false;
+      declineBtn.disabled = false;
+      confirmBtn.textContent = confirmLabel;
+    }
+  });
+
+  return card;
+}
+
+// Read-only status line -- reflects blocking the user already confirmed in
+// a previous session, so it's safe to populate on render rather than
+// gating it behind the button click (nothing new is being decided or run
+// here, just showing existing state). Returns null if nothing is blocked.
+async function _buildBlockedStatusLine(siteDomain, onChanged) {
+  if (!siteDomain || !window.TrackerBlocking) return null;
+  const { domains } = await window.TrackerBlocking.getBlockedForSite(siteDomain);
+  if (!domains.length) return null;
+
+  const wrap = document.createElement("div");
+  wrap.className = "protect-blocked-status";
+  const line = document.createElement("p");
+  line.className = "protect-blocked-status-line";
+  line.textContent = `🛡️ ${domains.length} tracker${domains.length === 1 ? "" : "s"} currently blocked on this site.`;
+  wrap.appendChild(line);
+
+  const list = document.createElement("ul");
+  list.className = "protect-tier-list";
+  for (const domain of domains) {
+    const li = document.createElement("li");
+    li.appendChild(document.createTextNode(domain + " "));
+    const unblockBtn = document.createElement("button");
+    unblockBtn.type = "button";
+    unblockBtn.className = "protect-unblock-btn";
+    unblockBtn.textContent = "Unblock";
+    unblockBtn.addEventListener("click", async () => {
+      unblockBtn.disabled = true;
+      await window.TrackerBlocking.removeBlockingForSite(siteDomain, [domain]);
+      if (onChanged) onChanged();
+    });
+    li.appendChild(unblockBtn);
+    list.appendChild(li);
+  }
+  wrap.appendChild(list);
+
+  if (domains.length > 1) {
+    const unblockAllBtn = document.createElement("button");
+    unblockAllBtn.type = "button";
+    unblockAllBtn.className = "protect-unblock-btn protect-unblock-all-btn";
+    unblockAllBtn.textContent = "Unblock all";
+    unblockAllBtn.addEventListener("click", async () => {
+      unblockAllBtn.disabled = true;
+      await window.TrackerBlocking.removeBlockingForSite(siteDomain);
+      if (onChanged) onChanged();
+    });
+    wrap.appendChild(unblockAllBtn);
+  }
+
+  return wrap;
+}
+
+// Collapsible "customize what's recommended" picker -- concern-profile
+// presets plus advanced per-category toggles, backed by
+// concern_profiles.js/chrome.storage.local. Changing a setting here only
+// changes what the block recommendation includes next time it's shown; it
+// never blocks anything by itself (see concern_profiles.js's header
+// comment).
+async function _buildConcernProfilePicker(onChange) {
+  if (!window.ConcernProfiles || !window.TrackerRemediation) return null;
+  const state = await window.ConcernProfiles.getConcernProfileState();
+
+  const details = document.createElement("details");
+  details.className = "protect-customize";
+  const summary = document.createElement("summary");
+  summary.className = "protect-customize-summary";
+  summary.textContent = "⚙️ Customize what's recommended";
+  details.appendChild(summary);
+
+  const presetFieldset = document.createElement("fieldset");
+  presetFieldset.className = "protect-customize-presets";
+  const legend = document.createElement("legend");
+  legend.textContent = "Concern profile";
+  presetFieldset.appendChild(legend);
+
+  for (const [id, profile] of Object.entries(window.ConcernProfiles.PRESET_PROFILES)) {
+    const label = document.createElement("label");
+    label.className = "protect-preset-option";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "concern-profile";
+    radio.value = id;
+    radio.checked = state.activeProfile === id;
+    radio.addEventListener("change", async () => {
+      await window.ConcernProfiles.setActiveProfile(id);
+      if (onChange) onChange();
+    });
+    label.appendChild(radio);
+    const text = document.createElement("span");
+    text.textContent = ` ${profile.label} — ${profile.description}`;
+    label.appendChild(text);
+    presetFieldset.appendChild(label);
+  }
+  details.appendChild(presetFieldset);
+
+  const advanced = document.createElement("details");
+  advanced.className = "protect-customize-advanced";
+  const advancedSummary = document.createElement("summary");
+  advancedSummary.textContent = "Advanced: per-category toggles";
+  advanced.appendChild(advancedSummary);
+
+  for (const category of window.TrackerRemediation.AUTO_FIX_CATEGORIES) {
+    const alwaysOn = window.ConcernProfiles.ALWAYS_RECOMMENDED_CATEGORIES.has(category);
+    const recommended = window.ConcernProfiles.recommendedCategoriesForState(state);
+    const label = document.createElement("label");
+    label.className = "protect-advanced-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = alwaysOn || recommended.has(category);
+    checkbox.disabled = alwaysOn;
+    checkbox.addEventListener("change", async () => {
+      await window.ConcernProfiles.setCategoryOverride(category, checkbox.checked);
+      if (onChange) onChange();
+    });
+    label.appendChild(checkbox);
+    const text = document.createElement("span");
+    text.textContent = alwaysOn ? ` ${category} (always recommended)` : ` ${category}`;
+    label.appendChild(text);
+    advanced.appendChild(label);
+  }
+  details.appendChild(advanced);
+
+  return details;
+}
+
+// Auto-fix tier's "take action" block: currently-blocked trackers (with
+// per-domain/bulk unblock) plus a recommend-and-confirm card for anything
+// the active concern profile newly recommends. Falls back to the old
+// preview-only note when there's no resolvable siteDomain or the blocking
+// modules aren't loaded, so this degrades gracefully rather than breaking.
+async function _buildAutoFixActions(autoFixEntries, siteDomain, onChanged) {
+  const wrap = document.createElement("div");
+
+  if (!siteDomain || !window.TrackerBlocking || !window.ConcernProfiles) {
+    const note = document.createElement("p");
+    note.className = "muted protect-tier-note";
+    note.textContent =
+      "Preview only -- couldn't determine this site's domain, so nothing can be blocked yet.";
+    wrap.appendChild(note);
+    return wrap;
+  }
+
+  const state = await window.ConcernProfiles.getConcernProfileState();
+  const recommended = window.ConcernProfiles.filterAutoFixByProfile(autoFixEntries, state);
+  const { domains: alreadyBlocked } = await window.TrackerBlocking.getBlockedForSite(siteDomain);
+  const notYetBlocked = recommended.filter((e) => !alreadyBlocked.includes(e.domain));
+  const excludedCount = autoFixEntries.length - recommended.length;
+
+  if (notYetBlocked.length) {
+    const domains = notYetBlocked.map((e) => e.domain);
+    const names = notYetBlocked.map((e) => _explainMatchedDomain(e).label).join(", ");
+    const card = _buildRecommendCard({
+      icon: "🛡️",
+      title: `Block ${domains.length} tracker${domains.length === 1 ? "" : "s"} on this site`,
+      explanation:
+        `We recommend blocking ${domains.length} tracker${domains.length === 1 ? "" : "s"} detected on this site: ${names}. ` +
+        "Blocking may occasionally affect site features that rely on these domains (like embedded logins or widgets).",
+      confirmLabel: `Block ${domains.length} tracker${domains.length === 1 ? "" : "s"}`,
+      onConfirm: async () => {
+        await window.TrackerBlocking.applyBlockingForSite(siteDomain, domains);
+        if (onChanged) onChanged();
+      },
+    });
+    wrap.appendChild(card);
+  }
+
+  if (excludedCount > 0) {
+    const note = document.createElement("p");
+    note.className = "muted protect-tier-note";
+    note.textContent = `${excludedCount} more auto-fixable tracker${excludedCount === 1 ? "" : "s"} not included by your current concern profile -- see Customize above.`;
+    wrap.appendChild(note);
+  }
+
+  if (!notYetBlocked.length && !alreadyBlocked.length) {
+    const note = document.createElement("p");
+    note.className = "muted protect-tier-note";
+    note.textContent = "Nothing here is currently recommended for blocking under your active concern profile.";
+    wrap.appendChild(note);
+  }
+
+  return wrap;
+}
+
+// Separate recommend-and-confirm card for clearing tracker cookies --
+// deliberately its own action, its own explanation, its own confirm click,
+// never bundled with blocking (see tracker_cookies.js's header comment on
+// why this isn't a blanket browsingData.remove).
+async function _buildCookieClearAction(matchedDomains, siteDomain, onChanged) {
+  if (!siteDomain || !window.TrackerCookies) return null;
+  const domains = Array.from(new Set(matchedDomains.map((e) => e.domain)));
+  const cookies = await window.TrackerCookies.findTrackerCookies(domains, siteDomain);
+  if (!cookies.length) return null;
+
+  const cookieDomains = Array.from(new Set(cookies.map((c) => c.domain)));
+  return _buildRecommendCard({
+    icon: "🍪",
+    title: `Clear ${cookies.length} tracking cookie${cookies.length === 1 ? "" : "s"}`,
+    explanation:
+      `This will remove ${cookies.length} cookie${cookies.length === 1 ? "" : "s"} from ${cookieDomains.length} tracking domain${cookieDomains.length === 1 ? "" : "s"} detected on this site. ` +
+      "This will not affect your login or other site data.",
+    confirmLabel: `Clear ${cookies.length} cookie${cookies.length === 1 ? "" : "s"}`,
+    onConfirm: async () => {
+      await window.TrackerCookies.clearTrackerCookies(cookies);
+      if (onChanged) onChanged();
+    },
+  });
+}
+
+async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, onChanged) {
   const { items, groups } = window.TrackerRemediation.classifySite(matchedDomains);
   resultsSlot.innerHTML = "";
 
   const summary = document.createElement("p");
   summary.className = "protect-summary";
   summary.textContent =
-    `${groups.autoFix.length} tracker${groups.autoFix.length === 1 ? "" : "s"} blocked (preview), ` +
+    `${groups.autoFix.length} tracker${groups.autoFix.length === 1 ? "" : "s"} auto-fixable, ` +
     `${groups.flagAndLink.length} opt-out link${groups.flagAndLink.length === 1 ? "" : "s"} available, ` +
     `${groups.flagAndExplain.length} couldn't be blocked`;
   resultsSlot.appendChild(summary);
 
   if (groups.autoFix.length) {
-    const tier = _buildProtectResultTier("🛡️ Blocked (preview)", "protect-tier--autofix", String(groups.autoFix.length));
+    const tier = _buildProtectResultTier("🛡️ Auto-fixable", "protect-tier--autofix", String(groups.autoFix.length));
     const ul = document.createElement("ul");
     ul.className = "protect-tier-list";
     for (const entry of groups.autoFix) {
@@ -439,11 +702,7 @@ function _renderProtectResults(resultsSlot, matchedDomains) {
       ul.appendChild(li);
     }
     tier.appendChild(ul);
-    const note = document.createElement("p");
-    note.className = "muted protect-tier-note";
-    note.textContent =
-      "Preview only -- this extension doesn't yet have permission to actually block requests, so nothing was sent or blocked on your behalf.";
-    tier.appendChild(note);
+    tier.appendChild(await _buildAutoFixActions(groups.autoFix, siteDomain, onChanged));
     resultsSlot.appendChild(tier);
   }
 
@@ -488,18 +747,33 @@ function _renderProtectResults(resultsSlot, matchedDomains) {
     tier.appendChild(ul);
     resultsSlot.appendChild(tier);
   }
+
+  // Cookie clearing is a separate concern from any tier above -- it can
+  // apply to any detected tracker domain, not just auto-fix ones, so it's
+  // rendered once, after the tier breakdown, rather than folded into one
+  // of the three tiers above.
+  const cookieCard = await _buildCookieClearAction(items, siteDomain, onChanged);
+  if (cookieCard) resultsSlot.appendChild(cookieCard);
 }
 
-// Builds the whole card: button + (once clicked) the tiered results below
-// it. Returns null when there's nothing to act on -- renderObservedResult
-// already gives a clean site its own positive empty state before this is
-// ever reached, so in practice this always has at least one tracker.
-function _buildProtectMeSection(matchedDomains) {
+// Builds the whole card: blocked-status line + customize picker (both
+// populate immediately, read-only/settings-only) plus the button +
+// (once clicked) the tiered results below it. Returns null when there's
+// nothing to act on -- renderObservedResult already gives a clean site its
+// own positive empty state before this is ever reached, so in practice
+// this always has at least one tracker.
+function _buildProtectMeSection(matchedDomains, siteDomain) {
   if (!matchedDomains || !matchedDomains.length) return null;
   if (!window.TrackerRemediation) return null; // script not loaded -- fail quiet, not broken
 
   const section = document.createElement("div");
   section.className = "protect-section";
+
+  const statusSlot = document.createElement("div");
+  section.appendChild(statusSlot);
+
+  const customizeSlot = document.createElement("div");
+  section.appendChild(customizeSlot);
 
   const intro = document.createElement("p");
   intro.className = "protect-intro";
@@ -516,9 +790,42 @@ function _buildProtectMeSection(matchedDomains) {
   resultsSlot.className = "protect-results hidden";
   section.appendChild(resultsSlot);
 
-  button.addEventListener("click", () => {
-    _renderProtectResults(resultsSlot, matchedDomains);
+  async function refreshResults() {
+    await _renderProtectResults(resultsSlot, matchedDomains, siteDomain, onAnyChange);
+  }
+
+  function refreshStatus() {
+    _buildBlockedStatusLine(siteDomain, onAnyChange).then((el) => {
+      statusSlot.innerHTML = "";
+      if (el) statusSlot.appendChild(el);
+    });
+  }
+
+  function refreshCustomize() {
+    _buildConcernProfilePicker(onAnyChange).then((el) => {
+      customizeSlot.innerHTML = "";
+      if (el) customizeSlot.appendChild(el);
+    });
+  }
+
+  // Shared by every sub-action (unblock, block confirm, cookie-clear
+  // confirm, profile/advanced toggle change): refresh the read-only status
+  // line always, and refresh the tiered results only if they're currently
+  // visible -- no point re-computing a hidden section.
+  function onAnyChange() {
+    refreshStatus();
+    if (!resultsSlot.classList.contains("hidden")) refreshResults();
+  }
+
+  refreshStatus();
+  refreshCustomize();
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.textContent = "Checking…";
+    await refreshResults();
     resultsSlot.classList.remove("hidden");
+    button.disabled = false;
     button.textContent = "🛡️ Re-check this site";
   });
 
@@ -531,7 +838,7 @@ function _buildProtectMeSection(matchedDomains) {
 // cell once resolved -- the glance row renders its skeleton immediately
 // (classifier badge only, since that's synchronous) and this is what
 // completes it, without a second lookup.
-function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
+function renderObservedResult(container, observedSettled, glanceBadgeSlot, siteDomain) {
   container.innerHTML = "";
   const profile = observedSettled.status === "fulfilled" ? observedSettled.value : null;
 
@@ -625,7 +932,7 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
   // it's visible without expanding anything -- design spec's placement
   // ("using the established visual system... cards, severity badges,
   // tabs"). Nothing here runs until the user clicks the button.
-  const protectSection = _buildProtectMeSection(matchedDomains);
+  const protectSection = _buildProtectMeSection(matchedDomains, siteDomain);
   if (protectSection) container.appendChild(protectSection);
 
   // One card per tracker category, collapsed by default -- design spec's
@@ -1124,7 +1431,7 @@ async function renderSiteResult(container, site) {
   renderChannelAgreementBanner(bannerSlot, comparison);
   setObservedTabFlag(flagDot, comparison);
   renderTosdrResult(tosdrContainer, tosdrSettled);
-  renderObservedResult(observedContainer, observedSettled, glanceObservedSlot);
+  renderObservedResult(observedContainer, observedSettled, glanceObservedSlot, site.domain);
 }
 
 async function getCurrentTab() {

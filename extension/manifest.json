@@ -8,7 +8,9 @@
     "activeTab",
     "storage",
     "scripting",
-    "webRequest"
+    "webRequest",
+    "declarativeNetRequest",
+    "cookies"
   ],
   "host_permissions": [
     "http://*/*",
