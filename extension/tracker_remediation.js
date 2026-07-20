@@ -65,7 +65,11 @@ const FLAG_AND_EXPLAIN_CATEGORIES = new Set([
   "Badge",
 ]);
 
-const CATEGORY_EXPLANATIONS = {
+// Named distinctly from tracker_category_glossary.js's own top-level
+// CATEGORY_EXPLANATIONS -- classic <script> tags share one global lexical
+// scope (see popup.html's script order), so reusing that name here would
+// throw "Identifier ... has already been declared" in the real popup.
+const TIER_EXPLAIN_REASONS = {
   CDN: "This loads core site resources (scripts, images, or styles) from a shared content delivery network -- blocking it could break the page.",
   "Embedded Content": "This is an embedded widget (video, map, or similar) built into the page -- blocking it would remove that content entirely.",
   "Online Payment": "This handles checkout or payment processing -- blocking it could prevent purchases from completing.",
@@ -81,7 +85,7 @@ const CATEGORY_EXPLANATIONS = {
 
 function explanationForCategory(category) {
   return (
-    CATEGORY_EXPLANATIONS[category] ||
+    TIER_EXPLAIN_REASONS[category] ||
     "This tracker is tied to core site functionality and can't be safely blocked without risking breakage."
   );
 }
