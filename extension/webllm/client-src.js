@@ -109,7 +109,7 @@ async function summarizePolicy(policyText, findings, onProgress) {
   const completion = await engine.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     temperature: 0.2,
-    max_tokens: 280,
+    max_tokens: 420,
   });
   const text = completion.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("The local model returned an empty response.");

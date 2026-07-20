@@ -429,9 +429,33 @@ function parseAiSummary(raw) {
   return { what, concerns, protectYourself, bottomLine };
 }
 
+// Truncates on a sentence boundary rather than mid-word/mid-clause --
+// prefers the last ". "/"! "/"? " at or before `max` chars, falling back
+// to a hard cut only if no sentence boundary exists that far into the
+// text at all. Also acts as a safety net if the model's raw reply itself
+// got cut off mid-sentence by hitting its token budget (see
+// webllm/client-src.js's max_tokens) -- either way, nothing rendered
+// ends on a dangling word.
 function _capSentence(text, max) {
   if (!text) return text;
-  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
+  if (text.length <= max) return _ensureSentenceEnds(text);
+  const window = text.slice(0, max);
+  const lastBoundary = Math.max(window.lastIndexOf(". "), window.lastIndexOf("! "), window.lastIndexOf("? "));
+  if (lastBoundary > max * 0.4) {
+    return window.slice(0, lastBoundary + 1).trim();
+  }
+  return `${window.trim()}…`;
+}
+
+// If the model's reply got cut off mid-sentence (hit its token budget
+// before finishing, or just trailed off), the last visible character
+// usually isn't sentence-ending punctuation -- append an ellipsis so it
+// reads as "trails off" rather than a broken, unfinished sentence.
+function _ensureSentenceEnds(text) {
+  if (!text) return text;
+  const trimmed = text.trim();
+  if (/[.!?…]$/.test(trimmed)) return trimmed;
+  return `${trimmed}…`;
 }
 
 // ---------- AI explainer ----------
@@ -535,14 +559,14 @@ function addAiExplainBlock(parent, policyText, analysis, settledPromise) {
         const p = document.createElement("p");
         p.className = "summary-text";
         const isLong = raw.length > 400;
-        p.textContent = isLong ? `${raw.slice(0, 400).trim()}…` : raw;
+        p.textContent = isLong ? _capSentence(raw, 400) : _ensureSentenceEnds(raw);
         resultEl.appendChild(p);
         if (isLong) {
           const toggle = document.createElement("button");
           toggle.className = "link-btn";
           toggle.textContent = "Show full response";
           toggle.addEventListener("click", () => {
-            p.textContent = raw;
+            p.textContent = _ensureSentenceEnds(raw);
             toggle.remove();
           });
           resultEl.appendChild(toggle);
