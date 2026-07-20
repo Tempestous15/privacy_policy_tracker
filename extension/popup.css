@@ -22,6 +22,11 @@
   --radius-pill: 999px;
   --shadow-sm: 0 1px 2px rgba(74, 55, 40, 0.06);
   --shadow-card: 0 1px 3px rgba(74, 55, 40, 0.08);
+  /* glossaryUI: the glossary tooltip floats above real content rather
+     than sitting in normal flow like a card -- one step more shadow than
+     --shadow-card helps it read as "hovering over," not just another
+     card in the stack. */
+  --shadow-popover: 0 4px 16px rgba(74, 55, 40, 0.22);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -606,3 +611,118 @@ abbr[title] {
   padding-top: 0.5rem;
   border-top: 1px dashed var(--border);
 }
+
+
+/* ---------- Glossary: shared hover-term component (glossaryUI) ----------
+   Reusable replacement for the old per-instance native <abbr title>
+   pattern (dotted underline + browser tooltip -- see git history). One
+   term = one call to GlossaryTooltip.wrapTerm() in popup.js; content
+   lives in glossary.js, never hardcoded here or in a component. Used
+   consistently everywhere a jargon term appears, not just fingerprinting.
+
+   Trigger is a small "i" info-circle rather than the plain "?" used
+   before this round -- "?" reads ambiguously as help/error/unknown,
+   while a circled "i" is a more widely recognized "hover for info"
+   affordance. Sized for an easy hover target (padding + a negative
+   margin keep the hit area larger than the visual footprint) without
+   competing visually with the term text next to it. */
+.glossary-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.glossary-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: content-box;
+  width: 15px;
+  height: 15px;
+  padding: 3px;
+  margin: -3px 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--brown-mid);
+  color: var(--brown-mid);
+  font-size: 10px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+/* Hover/focus fills the circle solid -- a visible state change confirms
+   "this is interactive" before the (deliberately delayed) tooltip ever
+   appears, per the design spec's hover-affordance requirement. */
+.glossary-trigger:hover,
+.glossary-trigger:focus-visible {
+  background: var(--brown-mid);
+  border-color: var(--brown-mid);
+  color: var(--surface);
+  outline: none;
+}
+.glossary-trigger:focus-visible {
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--border-strong);
+}
+
+.glossary-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+  padding: 0.6rem 0.7rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.glossary-tooltip--visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.glossary-tooltip-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  left: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+.glossary-tooltip--below .glossary-tooltip-arrow { top: -6px; border-bottom: 6px solid var(--card); }
+.glossary-tooltip--above .glossary-tooltip-arrow { bottom: -6px; border-top: 6px solid var(--card); }
+
+.glossary-tooltip-term {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  margin: 0 0 0.3rem;
+}
+.glossary-tooltip-short {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text);
+  margin: 0 0 0.45rem;
+}
+.glossary-tooltip-example {
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  margin: 0 0 0.45rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border-strong);
+}
+.glossary-tooltip-example strong { color: var(--brown-mid); font-weight: 700; }
+.glossary-tooltip-why {
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: var(--text);
+  margin: 0;
+}
+.glossary-tooltip-why strong { color: var(--brown-dark); font-weight: 700; }

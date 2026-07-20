@@ -184,46 +184,33 @@ function renderTosdrResult(container, tosdrSettled) {
 // Observed round 3 (user feedback: "third-party domain," "fingerprinting,"
 // and "high-risk" aren't self-explanatory, but spelling them out in the
 // always-visible text would bring back the "too much text" problem for
-// anyone who already knows them). Plain-language definitions live here,
-// once, and get attached to the jargon term itself via a native
-// <abbr title> -- hovering reveals the definition; anyone who already
-// knows the term never has to see it.
-const TERM_GLOSSARY = {
-  thirdParty:
-    "A server run by a different company than the one whose site you're visiting -- often used for ads, " +
-    "analytics, or tracking you across sites.",
-  fingerprinting:
-    "Identifying your device using small technical details (screen size, fonts, timezone, and similar) " +
-    "instead of cookies -- harder to block or clear than a cookie.",
-  // observedUI: highRisk/adTracking/infrastructure definitions (tied to
-  // the old "Concerning"/"Ad & tracking"/"Infrastructure" bucket
-  // headings) were removed along with those headings -- see
-  // _buildTrackerCard below, which reuses `fingerprinting` on the
-  // Fingerprinting & High-Risk card label instead.
+// anyone who already knows them). This round (glossaryUI) replaces that
+// round's native <abbr title> (a bare browser tooltip -- no styling, no
+// icon, one line max) with the shared GlossaryTooltip component: content
+// now lives once in glossary.js, not scattered across this file as
+// inline strings, and the same trigger/tooltip renders consistently
+// everywhere a term appears -- see glossary_tooltip.js.
+//
+// Maps a raw Tracker Radar category name (the vocabulary
+// tracker_category_glossary.js's CATEGORY_EXPLANATIONS is keyed on) to a
+// glossary.js entry key. Deliberately partial: categories left unmapped
+// here (Advertising, Analytics, Social Network, Ad Fraud, and the other
+// plain/self-explanatory ones) still get their plain-English detail
+// sentence from CATEGORY_EXPLANATIONS same as before, just without an
+// extra hover chip -- see the branch summary for why those were judged
+// not confusing enough to need one.
+const CATEGORY_TO_GLOSSARY_KEY = {
+  "Session Replay": "sessionReplay",
+  "Obscure Ownership": "obscureOwnership",
+  "Unknown High Risk Behavior": "unknownHighRisk",
+  "Tag Manager": "tagManager",
+  "Action Pixels": "trackingPixel",
+  "Audience Measurement": "audienceMeasurement",
+  "Federated Login": "federatedLogin",
+  "SSO": "federatedLogin",
+  "CDN": "cdn",
+  "Consent Management Platform": "consentManagementPlatform",
 };
-
-// Wraps a jargon term in a native <abbr title> -- hover (or a screen
-// reader announcing the title) reveals the plain-language definition,
-// with zero extra space taken up for anyone who doesn't need it.
-function _abbr(text, title) {
-  const el = document.createElement("abbr");
-  el.textContent = text;
-  el.title = title;
-  return el;
-}
-
-// Appends a mix of plain strings and { text, title } glossary terms into
-// `parent` -- lets a heading/sentence be built out of ordinary text with
-// one or two words made hoverable, instead of a separate glossary block.
-function _appendMixed(parent, parts) {
-  for (const part of parts) {
-    if (typeof part === "string") {
-      parent.appendChild(document.createTextNode(part));
-    } else {
-      parent.appendChild(_abbr(part.text, part.title));
-    }
-  }
-}
 
 // Observed round 2 (user feedback: too much text at once, not explainable
 // enough): this used to concatenate EVERY matched category's full-sentence
@@ -238,13 +225,20 @@ function _explainMatchedDomain(entry) {
   const label = entry.owner ? `${entry.domain} (${entry.owner})` : entry.domain;
   const categories = entry.categories || [];
   let detail = null;
+  let glossaryKey = null;
   if (entry.fingerprinting >= 2 && window.TrackerCategoryGlossary) {
     detail = TrackerCategoryGlossary.explainFingerprinting(entry.fingerprinting);
+    // No glossary chip here -- the Fingerprinting & High-Risk card's own
+    // label already carries the "Fingerprinting" hover (see
+    // _buildTrackerCard); repeating it on every heavy-fingerprinting
+    // tracker's line underneath would be the same tooltip twice in one
+    // card.
   }
   if (!detail && categories.length && window.TrackerCategoryGlossary) {
     detail = TrackerCategoryGlossary.explainCategory(categories[0]);
+    glossaryKey = CATEGORY_TO_GLOSSARY_KEY[categories[0]] || null;
   }
-  return { label, detail };
+  return { label, detail, glossaryKey };
 }
 
 // observedUI (design spec: "one card per tracker category, expandable to
@@ -325,12 +319,13 @@ function _buildTrackerCard(group) {
   summaryEl.className = "tracker-card-summary";
   const label = document.createElement("span");
   label.className = "tracker-card-label";
-  // The Fingerprinting & High-Risk card's label carries the same hover
-  // glossary definition the plain-English summary text uses for
-  // "third-party" -- one consistent hover-to-learn pattern, not a new
-  // one just for card labels.
+  // The Fingerprinting & High-Risk card's label carries the same
+  // GlossaryTooltip used everywhere else a jargon term appears -- one
+  // consistent hover-to-learn component, not a one-off for card labels.
   if (group.key === "fingerprinting") {
-    _appendMixed(label, [`${group.def.icon} `, { text: "Fingerprinting", title: TERM_GLOSSARY.fingerprinting }, " & High-Risk"]);
+    label.appendChild(document.createTextNode(`${group.def.icon} `));
+    label.appendChild(GlossaryTooltip.wrapTerm("Fingerprinting", "fingerprinting"));
+    label.appendChild(document.createTextNode(" & High-Risk"));
   } else {
     label.textContent = `${group.def.icon} ${group.def.label}`;
   }
@@ -344,12 +339,26 @@ function _buildTrackerCard(group) {
   const ul = document.createElement("ul");
   ul.className = "tracker-card-list";
   for (const entry of group.entries) {
-    const { label: entryLabel, detail } = _explainMatchedDomain(entry);
+    const { label: entryLabel, detail, glossaryKey } = _explainMatchedDomain(entry);
     const li = document.createElement("li");
     const strong = document.createElement("strong");
     strong.textContent = entryLabel;
     li.appendChild(strong);
     if (detail) li.appendChild(document.createTextNode(" -- " + detail));
+    // Folds the raw category name in parenthetically, hoverable, right
+    // after its already-plain-English explanation -- same "plain
+    // English first, jargon term optional and hoverable" pattern the
+    // summary sentence below uses for "third-party". Only categories
+    // mapped in CATEGORY_TO_GLOSSARY_KEY get this; the self-explanatory
+    // ones (Advertising, Analytics, ...) just keep their plain sentence.
+    if (glossaryKey) {
+      const entryTerm = window.Glossary.getGlossaryTerm(glossaryKey);
+      if (entryTerm) {
+        li.appendChild(document.createTextNode(" ("));
+        li.appendChild(GlossaryTooltip.wrapTerm(entryTerm.term, glossaryKey));
+        li.appendChild(document.createTextNode(")"));
+      }
+    }
     ul.appendChild(li);
   }
   details.appendChild(ul);
@@ -444,19 +453,24 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
   // Plain-English first: the sentence itself explains the concept ("other
   // companies' servers... in the background") without requiring anyone to
   // already know the term "third-party." The term is folded in
-  // parenthetically, hoverable for anyone who wants the sharper
-  // definition or just wants to learn the vocabulary.
+  // parenthetically, hoverable via the shared GlossaryTooltip for anyone
+  // who wants the sharper definition or just wants to learn the
+  // vocabulary.
   const summary = document.createElement("p");
   summary.className = "summary-text";
   if (profile.trackerCount === 0) {
     summary.textContent = "Nothing from another company loaded quietly in the background on this page.";
   } else {
-    _appendMixed(summary, [
-      `${profile.trackerCount} other compan${profile.distinctOwnerCount === 1 ? "y's" : "ies'"} servers ` +
-        `(often called `,
-      { text: "third-party", title: TERM_GLOSSARY.thirdParty },
-      ` domains) quietly loaded in the background -- separate from what the site's own policy says.`,
-    ]);
+    summary.appendChild(
+      document.createTextNode(
+        `${profile.trackerCount} other compan${profile.distinctOwnerCount === 1 ? "y's" : "ies'"} servers ` +
+          `(often called `
+      )
+    );
+    summary.appendChild(GlossaryTooltip.wrapTerm("third-party", "thirdParty"));
+    summary.appendChild(
+      document.createTextNode(` domains) quietly loaded in the background -- separate from what the site's own policy says.`)
+    );
   }
   container.appendChild(summary);
 
