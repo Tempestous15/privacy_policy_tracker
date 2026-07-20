@@ -1,4 +1,4 @@
-// Note: the on-device AI summary (webllm-client.js) relies on chrome.runtime
+// Note: the on-device AI explainer (webllm-client.js) relies on chrome.runtime
 // service-worker WebGPU support and is Chrome/Chromium-only as of this
 // writing -- see extension/README.md. `browserAPI` (Chrome/Firefox promise
 // API shim) is declared once, in storage.js, loaded before this file.
@@ -14,6 +14,17 @@
 // full detail when the user actually asks to see it (tab switch, row
 // expand, or a collapsed <details> click) -- see individual function
 // comments below for where each of those choices lives.
+//
+// llmUI: the on-device AI explainer used to be a plain button wedged
+// between the two channels that, on click, re-read the raw policy text
+// from scratch and dumped a 4-6 sentence paragraph -- slow, sometimes
+// repetitive (small models ramble), and disconnected from the red flags
+// the local classifier had already found. It's now built around the
+// classifier/ToS;DR/Observed results this file already computes: the
+// model's job is just to explain those already-verified findings in
+// plain English (see webllm/client-src.js), not re-derive them, and it's
+// moved to right after the at-a-glance badges since that's the fastest
+// "just tell me simply" entry point into the popup.
 
 const els = {
   currentTabHost: document.getElementById("current-tab-host"),
@@ -349,54 +360,188 @@ function renderChannelAgreementBanner(container, tosdrSettled, observedSettled) 
   container.appendChild(banner);
 }
 
-// Optional, on-demand result -- only generated after the user clicks "Get
-// AI summary". Runs a small model entirely on-device via WebGPU (see
-// webllm-client.js); no policy text is ever sent anywhere for this. A plain
-// paragraph rather than structured fields -- small local models are far
-// less reliable at strict JSON schemas than a hosted frontier model, and the
-// red-flags categorization is already handled reliably by the classifier.
-function addAiSummaryButton(parent, policyText) {
+// ---------- AI explainer: findings context builder ----------
+// Turns the classifier's already-verified categories (plus ToS;DR/Tracker
+// Radar results, once the shared lookup resolves) into a short plain-text
+// bullet list for the local model to explain -- see
+// webllm/client-src.js's FINDINGS_PROMPT_TEMPLATE. This is the core of the
+// llmUI change: the model's job shifts from "read the raw policy and find
+// issues" (extraction -- unreliable at this model size) to "explain these
+// already-verified facts in plain English" (paraphrasing -- much more
+// reliable). Capped at a handful of items per source; nobody needs all 10
+// possible red-flag categories spelled out to get the gist, and a shorter
+// prompt keeps a small model's output shorter and more focused too.
+function buildFindingsContext(analysis, tosdrResult, observedResult) {
+  const lines = [];
+
+  if (analysis && analysis.categories.length) {
+    for (const cat of analysis.categories.slice(0, 4)) {
+      lines.push(`- ${cat.label} (found in the policy text, ${cat.severity} severity)`);
+    }
+  }
+
+  if (tosdrResult && tosdrResult.rating) {
+    lines.push(`- ToS;DR community rating: ${tosdrResult.rating}`);
+    for (const point of (tosdrResult.points || []).slice(0, 2)) {
+      lines.push(`- ToS;DR: ${point.title}`);
+    }
+  }
+
+  if (observedResult && observedResult.trackerCount > 0) {
+    const companyWord = observedResult.distinctOwnerCount === 1 ? "company" : "companies";
+    lines.push(
+      `- ${observedResult.trackerCount} third-party tracker(s) actually detected loading on this site ` +
+      `(independent of what the policy says), across ${observedResult.distinctOwnerCount} ${companyWord}`
+    );
+  }
+
+  return lines.length ? lines.join("\n") : null;
+}
+
+// Leniently pulls WHAT/CONCERNS/BOTTOM LINE lines out of the model's raw
+// reply. Small local models don't always follow formatting instructions
+// exactly, so this tolerates a leading "-"/"*"/number, extra asterisks
+// (markdown-style bold), and any-case labels -- and returns null if it
+// can't find a single labelled line, so the caller falls back to showing
+// the raw text (bounded) instead of three empty rows.
+function parseAiSummary(raw) {
+  if (!raw) return null;
+  const grab = (label) => {
+    const re = new RegExp(`(?:^|\\n)\\s*[-*\\d.]*\\s*\\**\\s*${label}\\s*\\**\\s*:\\s*(.+)`, "i");
+    const m = raw.match(re);
+    if (!m) return null;
+    return m[1].trim().replace(/\*+$/, "").trim();
+  };
+  const what = grab("WHAT");
+  const concerns = grab("CONCERNS?");
+  const bottomLine = grab("BOTTOM[\\s-]*LINE");
+  if (!what && !concerns && !bottomLine) return null;
+  return { what, concerns, bottomLine };
+}
+
+function _capSentence(text, max) {
+  if (!text) return text;
+  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
+}
+
+// ---------- AI explainer ----------
+// On-demand result -- only generated after the user clicks "Explain in
+// plain English". Runs a small model entirely on-device via WebGPU (see
+// webllm-client.js); no policy text is ever sent anywhere for this.
+// `settledPromise` is the SAME Promise.allSettled already kicked off by
+// renderSiteResult for the Disclosed/Observed sections below -- awaiting
+// it here does not trigger a second ToS;DR/Observed lookup, it just waits
+// for whichever finishes first.
+function addAiExplainBlock(parent, policyText, analysis, settledPromise) {
+  if (!policyText) return; // nothing to explain
+
   const block = document.createElement("div");
-  block.className = "ai-summary-block";
+  block.className = "ai-explain-block";
+
+  const heading = document.createElement("h3");
+  heading.className = "ai-explain-heading";
+  heading.textContent = "💬 Explain this simply";
+  block.appendChild(heading);
 
   if (typeof WebLLMClient === "undefined" || !navigator.gpu) {
     const p = document.createElement("p");
     p.className = "muted";
-    p.textContent = "On-device AI summary needs a GPU with WebGPU support " +
-      "(not available in this browser, or no compatible graphics hardware was found).";
+    p.textContent = "Needs a GPU with WebGPU support (not available in this browser, or no compatible " +
+      "graphics hardware was found).";
     block.appendChild(p);
     parent.appendChild(block);
     return;
   }
 
+  const sub = document.createElement("p");
+  sub.className = "muted ai-explain-sub";
+  sub.textContent = "A small AI model runs entirely on this device -- your policy text is never sent anywhere.";
+  block.appendChild(sub);
+
   const btn = document.createElement("button");
-  btn.className = "link-btn ai-summary-btn";
-  btn.textContent = "Get AI summary (on-device)";
+  btn.className = "link-btn ai-explain-btn";
+  btn.textContent = "Explain in plain English";
+
+  const progress = document.createElement("progress");
+  progress.className = "ai-progress hidden";
+  progress.max = 1;
+  progress.value = 0;
+
+  const statusEl = document.createElement("p");
+  statusEl.className = "muted ai-status hidden";
 
   const resultEl = document.createElement("div");
 
   btn.addEventListener("click", async () => {
     btn.disabled = true;
-    resultEl.textContent = "Starting local model…";
+    progress.classList.remove("hidden");
+    statusEl.classList.remove("hidden");
+    statusEl.textContent = "Starting local model…";
     try {
-      const summary = await WebLLMClient.summarizePolicy(policyText, (report) => {
-        resultEl.textContent = report.text || `Loading model… ${Math.round((report.progress || 0) * 100)}%`;
+      const [tosdrSettled, observedSettled] = await settledPromise;
+      const tosdrResult = tosdrSettled.status === "fulfilled" ? tosdrSettled.value : null;
+      const observedResult = observedSettled.status === "fulfilled" ? observedSettled.value : null;
+      const findings = buildFindingsContext(analysis, tosdrResult, observedResult);
+
+      const raw = await WebLLMClient.summarizePolicy(policyText, findings, (report) => {
+        if (typeof report.progress === "number") progress.value = report.progress;
+        statusEl.textContent = report.text || `Loading model… ${Math.round((report.progress || 0) * 100)}%`;
       });
+
+      progress.classList.add("hidden");
+      statusEl.classList.add("hidden");
       resultEl.innerHTML = "";
-      const p = document.createElement("p");
-      p.className = "summary-text";
-      p.textContent = summary;
-      resultEl.appendChild(p);
+
+      const parsed = parseAiSummary(raw);
+      if (parsed) {
+        const rows = [
+          ["What it does", parsed.what],
+          ["Watch out for", parsed.concerns],
+          ["Bottom line", parsed.bottomLine],
+        ];
+        for (const [label, text] of rows) {
+          if (!text) continue;
+          const row = document.createElement("p");
+          row.className = "ai-finding-row";
+          const strong = document.createElement("strong");
+          strong.textContent = `${label}: `;
+          row.appendChild(strong);
+          row.appendChild(document.createTextNode(_capSentence(text, 220)));
+          resultEl.appendChild(row);
+        }
+      } else {
+        // Model didn't follow the format -- still show something useful
+        // rather than nothing, but bounded rather than a raw wall of text.
+        const p = document.createElement("p");
+        p.className = "summary-text";
+        const isLong = raw.length > 400;
+        p.textContent = isLong ? `${raw.slice(0, 400).trim()}…` : raw;
+        resultEl.appendChild(p);
+        if (isLong) {
+          const toggle = document.createElement("button");
+          toggle.className = "link-btn";
+          toggle.textContent = "Show full response";
+          toggle.addEventListener("click", () => {
+            p.textContent = raw;
+            toggle.remove();
+          });
+          resultEl.appendChild(toggle);
+        }
+      }
     } catch (err) {
+      progress.classList.add("hidden");
+      statusEl.classList.add("hidden");
       const message = (err && err.message) ||
         "the local model failed to load or run (often a missing/unsupported GPU)";
-      resultEl.innerHTML = `<p class="error">Couldn't generate an on-device summary: ${message}</p>`;
+      resultEl.innerHTML = `<p class="error">Couldn't generate an explanation: ${message}</p>`;
     } finally {
       btn.disabled = false;
     }
   });
 
   block.appendChild(btn);
+  block.appendChild(progress);
+  block.appendChild(statusEl);
   block.appendChild(resultEl);
   parent.appendChild(block);
 }
@@ -408,19 +553,20 @@ function addAiSummaryButton(parent, policyText) {
 // omit it and go straight to the bundled snapshot.
 //
 // Layout: glance row first (instant classifier badge, Observed badge
-// fills in once the shared lookup resolves), then an (usually empty)
+// fills in once the shared lookup resolves), then the AI explainer (llmUI
+// -- the fast "just tell me simply" entry point), then an (usually empty)
 // agreement banner, then two clearly separate channels -- "Disclosed"
 // (classifier + ToS;DR, both readings of the policy text) and "Observed"
 // (Tracker Radar, independent of the policy) -- never merged into one
 // badge/score. See risk_model.js and root README.md "Two-channel risk
 // model".
 //
-// extUI: ToS;DR and Tracker Radar are each fetched exactly once here via
-// Promise.allSettled, and the settled results are threaded through to
-// every function that needs them (banner, each channel's section, the
-// glance row) -- previously each of those fetched independently, so a
-// single render fired two ToS;DR requests and two Observed lookups for
-// the same domain.
+// extUI/llmUI: ToS;DR and Tracker Radar are each fetched exactly once
+// here via Promise.allSettled, and the settled results are threaded
+// through to every function that needs them (the AI explainer, the
+// banner, each channel's section, the glance row) -- previously each of
+// those fetched independently, so a single render could fire two ToS;DR
+// requests and two Observed lookups for the same domain.
 async function renderSiteResult(container, site) {
   container.innerHTML = "";
 
@@ -428,6 +574,15 @@ async function renderSiteResult(container, site) {
     typeof RedFlagsEngine !== "undefined" && site.text ? RedFlagsEngine.analyze(site.text) : null;
 
   const glanceObservedSlot = renderGlanceRow(container, classifierAnalysis);
+
+  // Not awaited here -- kicked off once, shared by the AI explainer below
+  // and by the Disclosed/Observed sections further down.
+  const settledPromise = Promise.allSettled([
+    TosdrClient.lookupDomain(site.domain),
+    TrackerRadarClient.lookupDomain(site.domain, site.tabId),
+  ]);
+
+  addAiExplainBlock(container, site.text, classifierAnalysis, settledPromise);
 
   const bannerContainer = document.createElement("div");
   container.appendChild(bannerContainer);
@@ -456,8 +611,6 @@ async function renderSiteResult(container, site) {
   tosdrContainer.innerHTML = '<p class="muted">Checking ToS;DR…</p>';
   container.appendChild(tosdrContainer);
 
-  addAiSummaryButton(container, site.text);
-
   const observedHeading = document.createElement("h3");
   observedHeading.className = "channel-heading";
   observedHeading.textContent = "Observed -- what we can technically detect";
@@ -467,10 +620,7 @@ async function renderSiteResult(container, site) {
   observedContainer.innerHTML = '<p class="muted">Checking Tracker Radar…</p>';
   container.appendChild(observedContainer);
 
-  const [tosdrSettled, observedSettled] = await Promise.allSettled([
-    TosdrClient.lookupDomain(site.domain),
-    TrackerRadarClient.lookupDomain(site.domain, site.tabId),
-  ]);
+  const [tosdrSettled, observedSettled] = await settledPromise;
 
   renderChannelAgreementBanner(bannerContainer, tosdrSettled, observedSettled);
   renderTosdrResult(tosdrContainer, tosdrSettled);

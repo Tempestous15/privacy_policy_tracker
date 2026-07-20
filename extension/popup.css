@@ -278,9 +278,61 @@ details.summary-section ul { margin: 0.3rem 0 0.3rem 1.35rem; padding: 0; }
 details.summary-section.red-flags summary { color: var(--danger); }
 .detail-teaser { font-size: 0.8rem; color: var(--text-muted); margin: 0.15rem 0 0.4rem 1.35rem; }
 
-.ai-summary-block { margin-top: var(--space-2); }
-.ai-summary-btn { margin-bottom: 0.3rem; }
-.ai-summary-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+/* ---------- AI explainer (llmUI) ----------
+   Sits right after the at-a-glance badges -- the fast "just tell me
+   simply" entry point, not a buried afterthought between the two
+   detailed channels below (where it used to live). Given a card of its
+   own (rather than sitting bare in the flow) so it visually reads as the
+   one thing worth reading first. Findings render as short labelled rows
+   (What it does / Watch out for / Bottom line) instead of a dense
+   paragraph -- see popup.js's parseAiSummary and webllm/client-src.js's
+   three-line prompt format. */
+.ai-explain-block {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.ai-explain-heading {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  margin: 0 0 0.2rem;
+}
+.ai-explain-sub { margin: 0 0 var(--space-2); }
+.ai-explain-btn {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--brown-dark);
+}
+.ai-explain-btn:hover { color: var(--accent-hover); }
+.ai-explain-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Native <progress> instead of the old raw "Loading model... 42%" text
+   spam -- one glance tells you it's working without reading anything. */
+.ai-progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin: 0.4rem 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.ai-progress::-webkit-progress-bar { background: var(--border); border-radius: var(--radius-pill); }
+.ai-progress::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-pill); }
+.ai-progress::-moz-progress-bar { background: var(--accent); border-radius: var(--radius-pill); }
+
+.ai-status { margin: 0.2rem 0; }
+
+.ai-finding-row {
+  font-size: 0.85rem;
+  margin: 0 0 0.35rem;
+  line-height: 1.35;
+}
+.ai-finding-row:last-child { margin-bottom: 0; }
+.ai-finding-row strong { color: var(--brown-dark); }
 
 /* ---------- Saved sites: compact rows, lazy-expand ----------
    Previously each saved site rendered its FULL result inline (banner +
