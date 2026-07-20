@@ -1,36 +1,111 @@
-/* ClipPri popup theme (extUI branch). Same warm cream/brown palette the
-   website already uses (website/assets/style.css) -- this formalizes it
-   into a fuller token set (spacing, shadow, two badge sizes) rather than
-   introducing a second, unrelated look. See README.md "extUI redesign"
-   for the structural rationale (tabs + lazy-expand saved list) behind
-   the accompanying popup.html/popup.js changes. */
+/* ClipPri popup theme.
+   extUI3 (visual-unification pass): built at different times, tabs,
+   cards, tooltips, badges, and confirm flows had each accreted their own
+   one-off colors/spacing/radii instead of sharing one system -- three
+   different reds meant "high severity" (--danger, risk-high's badge text,
+   tracker-card's border), 13 distinct font-sizes for a 380px popup, a
+   spacing scale that was defined but used in fewer than a quarter of the
+   places it should have been, and a shadow token applied to exactly one
+   card while seven other card-like containers sat flat. This file is a
+   single token set (palette incl. one severity system, spacing, type,
+   radius, shadow) applied consistently everywhere, not a new look --
+   same warm cream/brown base as before (and the website's
+   website/assets/style.css), just formalized and actually followed. See
+   README.md "extUI redesign" for the structural rationale (tabs +
+   lazy-expand saved list) this still builds on. */
 :root {
-  --surface: #fffdf7;
-  --card: #f7f1e6;
+  /* ---- Base palette (warm cream/brown, kept from the original theme;
+     border/card tones softened slightly for the friendlier direction) --- */
+  --surface: #fffdf8;
+  --card: #f8f2e7;
   --card-hover: #f1e8d8;
-  --border: #e0d5c5;
-  --border-strong: #cbb99e;
+  --border: #e6dccc;
+  --border-strong: #cdbb9f;
   --text: #2c2117;
   --text-muted: #8a7b6b;
   --brown-dark: #4a3728;
   --brown-mid: #7a6352;
   --accent: #8b6f4e;
   --accent-hover: #6e5640;
-  --danger: #a33322;
-  --radius: 12px;
-  --radius-sm: 8px;
+
+  /* ---- Severity system --------------------------------------------------
+     One bg/fg/border triple per level, used EVERYWHERE severity appears --
+     badges, category-card left borders, protect-tier headers, banners,
+     the top-level overall status. Previously every component redeclared
+     its own severity hex (risk-badge's high text was #7a1f28, but
+     --danger and tracker-card--high's border were both a different
+     #a33322 for the same "high" meaning) -- now there is exactly one red,
+     one yellow, one green. Softened to pastel bg tones for the friendlier
+     direction, but fg colors keep enough contrast (verified against their
+     paired bg) that hue + lightness both still separate the three levels,
+     not saturation alone -- so the signal survives for common color-vision
+     deficiencies too, not just for full-color vision. */
+  --severity-low-bg: #e1f0d9;
+  --severity-low-fg: #35652b;
+  --severity-low-border: #a8cf98;
+  --severity-medium-bg: #faf0d2;
+  --severity-medium-fg: #8a6a12;
+  --severity-medium-border: #e6c66f;
+  --severity-high-bg: #fbdfe1;
+  --severity-high-fg: #8a2a32;
+  --severity-high-border: #e5a1a7;
+  --severity-unknown-bg: #eae7e1;
+  --severity-unknown-fg: #5c554c;
+  --severity-unknown-border: #d3cdc0;
+  /* Errors/destructive actions reuse the same red as "high severity" --
+     one red for "pay attention" rather than a second, slightly different
+     one; --danger is now just a semantic alias, not an independent color. */
+  --danger: var(--severity-high-fg);
+
+  /* Two informational accents outside the severity system (ToS;DR grade
+     badge, opt-out links) -- kept distinct from severity since neither
+     means "risk level." */
+  --info-bg: #dbe9f8;
+  --info-fg: #1f4e7a;
+
+  /* ---- Spacing scale -----------------------------------------------------
+     Was defined with 4 steps but used in under a quarter of the places
+     that needed spacing (62 raw rem values vs 19 token uses) -- widened
+     to 7 steps so there's always a token close enough to reach for
+     instead of writing a new one-off value. */
+  --space-1: 0.2rem;
+  --space-2: 0.35rem;
+  --space-3: 0.5rem;
+  --space-4: 0.65rem;
+  --space-5: 0.75rem;
+  --space-6: 1rem;
+  --space-7: 1.5rem;
+
+  /* ---- Type scale ----------------------------------------------------
+     Replaces 13 distinct ad-hoc font-sizes (0.68rem-1.6rem) with 5 steps.
+     --text-xs: micro labels/counts/timestamps. --text-sm: secondary body
+     text, list items. --text-base: primary body text, buttons. --text-md:
+     sub-headings, site host name. --text-lg: top-level heading. */
+  --text-xs: 0.72rem;
+  --text-sm: 0.8rem;
+  --text-base: 0.85rem;
+  --text-md: 0.92rem;
+  --text-lg: 1.05rem;
+
+  /* ---- Radius scale ----------------------------------------------------
+     Renamed from --radius/--radius-sm (ambiguous once there were only two
+     non-pill sizes) to --radius-lg/--radius-md, and bumped both up
+     slightly (12->14, 8->10) for the friendlier/softer direction (design
+     spec #4) -- corners round enough to read as approachable without
+     losing the compact, precise feel a small popup needs. */
+  --radius-lg: 14px;
+  --radius-md: 10px;
   --radius-pill: 999px;
-  --shadow-sm: 0 1px 2px rgba(74, 55, 40, 0.06);
-  --shadow-card: 0 1px 3px rgba(74, 55, 40, 0.08);
-  /* glossaryUI: the glossary tooltip floats above real content rather
-     than sitting in normal flow like a card -- one step more shadow than
-     --shadow-card helps it read as "hovering over," not just another
-     card in the stack. */
-  --shadow-popover: 0 4px 16px rgba(74, 55, 40, 0.22);
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
+
+  /* ---- Shadow ------------------------------------------------------------
+     One consistent soft shadow, now applied to every card-level
+     container (previously only .card had one; tracker-card,
+     protect-section, ai-explain-block, glance-col, and the
+     disagreement banner all sat flat with a border only). No second
+     "elevated" tier -- one level of elevation is simpler and reads more
+     cohesive than inventing a hierarchy nothing asked for. */
+  --shadow-card: 0 1px 2px rgba(74, 55, 40, 0.05), 0 2px 6px rgba(74, 55, 40, 0.07);
+  --shadow-popover: 0 4px 16px rgba(74, 55, 40, 0.2);
 }
 
 * { box-sizing: border-box; }
@@ -43,20 +118,19 @@ body {
   background: var(--surface);
 }
 
-/* ---------- Header + tabs (replaces the old single-scroll layout) ----------
-   Both the header and tab bar sit outside the scrolling region, so
-   switching between "This Site" and "Saved" never requires re-finding
-   your scroll position -- see popup.html. */
+/* ---------- Header + tabs ----------
+   Both sit outside the scrolling region, so switching between "This Site"
+   and "Saved" never requires re-finding your scroll position. */
 header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border);
 }
 
 header h1 {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--brown-dark);
   margin: 0;
@@ -72,11 +146,11 @@ header h1 {
   flex: 1;
   width: auto;
   margin: 0;
-  padding: 0.6rem var(--space-2);
+  padding: var(--space-4) var(--space-3);
   background: transparent;
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;
@@ -84,7 +158,7 @@ header h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
+  gap: var(--space-2);
 }
 .tab:hover { background: var(--card-hover); color: var(--brown-dark); }
 .tab.active { color: var(--brown-dark); border-bottom-color: var(--brown-dark); }
@@ -98,7 +172,7 @@ header h1 {
   border-radius: var(--radius-pill);
   background: var(--border);
   color: var(--brown-dark);
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .tab.active .tab-count { background: var(--brown-dark); color: var(--surface); }
@@ -109,7 +183,7 @@ main {
 }
 .tab-panel {
   display: none;
-  padding: var(--space-4);
+  padding: var(--space-6);
   max-height: 520px;
   overflow-y: auto;
 }
@@ -117,15 +191,15 @@ main {
 
 .screen.hidden, .hidden { display: none !important; }
 
-.hint { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 var(--space-3); }
-.muted { color: var(--text-muted); font-size: 0.85rem; }
+.hint { color: var(--text-muted); font-size: var(--text-sm); margin: 0 0 var(--space-5); }
+.muted { color: var(--text-muted); font-size: var(--text-sm); }
 
 /* ---------- Current-site identity row (favicon + host) ---------- */
 .site-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 .site-favicon {
   width: 28px;
@@ -142,7 +216,7 @@ main {
 .site-favicon img { width: 16px; height: 16px; }
 .site-host {
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
   color: var(--brown-dark);
   margin: 0;
   word-break: break-word;
@@ -150,25 +224,25 @@ main {
 
 input {
   width: 100%;
-  padding: 0.55rem 0.65rem;
-  margin-bottom: var(--space-2);
+  padding: var(--space-4) var(--space-4);
+  margin-bottom: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   background: var(--surface);
 }
 
 button {
   width: 100%;
-  padding: 0.6rem 0.65rem;
+  padding: var(--space-4) var(--space-4);
   background: var(--brown-dark);
   color: var(--surface);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   cursor: pointer;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
   transition: background 0.15s;
 }
 button:hover { background: var(--accent-hover); }
@@ -185,133 +259,150 @@ button:active:not(:disabled) { transform: translateY(0.5px); }
 }
 .link-btn:hover { background: none; color: var(--brown-dark); }
 
-.error { color: var(--danger); font-size: 0.85rem; }
+.error { color: var(--danger); font-size: var(--text-sm); }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  padding: var(--space-3);
-  margin-bottom: var(--space-3);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
 }
 .card h2 {
-  font-size: 0.9rem;
-  margin: 0 0 var(--space-2);
+  font-size: var(--text-md);
+  margin: 0 0 var(--space-3);
   color: var(--brown-dark);
 }
 
 /* ---------- Risk badges ----------
-   Slightly larger + bolder than before, for at-a-glance legibility --
-   this is the one thing a user should be able to read without stopping
-   to focus. Colors unchanged (already accessible pastels), just given
-   more visual weight. */
+   Bold enough to read at a glance without stopping to focus -- this is
+   one of the few things a user should be able to take in instantly.
+   Colors now come from the shared severity tokens (see :root) instead of
+   their own hex pair, so a badge and a category-card's left border for
+   the same severity are now guaranteed to match exactly. */
 .risk-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.82rem;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
   font-weight: 700;
-  padding: 0.28rem 0.65rem;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-pill);
-  margin-bottom: var(--space-2);
-}
-.risk-low { background: #dff0d8; color: #2f5c26; }
-.risk-medium { background: #fcf3cf; color: #7a5f0a; }
-.risk-high { background: #f8d7da; color: #7a1f28; }
-.risk-unknown { background: #e2e2e2; color: #4a4a4a; }
-.tosdr-badge { background: #dbe9f8; color: #1f4e7a; margin-left: 0.4rem; }
-
-/* ---------- At-a-glance dual badge row ----------
-   Shows both channels' badges side by side, before either channel's
-   detail section -- a compact overview, never a blended score (still two
-   distinct badges/values; see risk_model.js's "never combine" rule).
-   New in extUI: gives an instant read on a site without scrolling into
-   either section. */
-.glance-row {
-  display: flex;
-  gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
-.glance-col {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.65rem;
-  text-align: center;
-}
-.glance-label {
-  display: block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  margin-bottom: 0.3rem;
-}
-.glance-col .risk-badge { margin-bottom: 0; }
+.risk-low { background: var(--severity-low-bg); color: var(--severity-low-fg); }
+.risk-medium { background: var(--severity-medium-bg); color: var(--severity-medium-fg); }
+.risk-high { background: var(--severity-high-bg); color: var(--severity-high-fg); }
+.risk-unknown { background: var(--severity-unknown-bg); color: var(--severity-unknown-fg); }
+.tosdr-badge { background: var(--info-bg); color: var(--info-fg); margin-left: var(--space-3); }
 
-.summary-text { font-size: 0.85rem; margin: 0.3rem 0; }
+/* ---------- Overall status (design spec: the very first thing shown) ----
+   A single glanceable, color-coded takeaway combining severity across
+   Disclosed and Observed -- the well-established "am I okay or not, in
+   about a second" pattern from security/risk tools. Replaces the old
+   side-by-side dual-badge glance row: that row already showed each
+   channel's own badge, which is redundant with each tab now also showing
+   its own badge inline -- this is the one thing that's genuinely new
+   information at this position (a COMBINED read), so it's what earns the
+   first-screen spot. Still never blends the two into one score
+   (risk_model.js's rule stands) -- see popup.js's renderOverallStatus:
+   this only takes the worse of the two already-computed levels for
+   color, same as the disagreement-comparison logic elsewhere already
+   does. */
+.overall-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  background: var(--severity-unknown-bg);
+  border: 1px solid var(--severity-unknown-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.overall-status[data-level="low"] { background: var(--severity-low-bg); border-color: var(--severity-low-border); }
+.overall-status[data-level="medium"] { background: var(--severity-medium-bg); border-color: var(--severity-medium-border); }
+.overall-status[data-level="high"] { background: var(--severity-high-bg); border-color: var(--severity-high-border); }
+.overall-status-icon { font-size: 1.15rem; line-height: 1; }
+.overall-status-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--brown-dark);
+}
+/* Protect-me entry point, surfaced right in the status banner when
+   relevant (design spec: "don't bury it only inside the observed tab") --
+   a proxy to the SAME button already rendered in the Observed tab, not a
+   second copy of the tiered-action logic. Styled as a compact pill so it
+   reads as a shortcut/action, not a second headline competing with the
+   status text next to it. */
+.overall-status-cta {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  background: var(--brown-dark);
+  color: var(--surface);
+}
+
+.summary-text { font-size: var(--text-sm); margin: var(--space-2) 0; }
 
 /* ---------- Collapsible detail sections ----------
-   Closed by default (extUI change -- red flags used to render
-   force-opened via details.open = true, which was a big part of the
-   "wall of text" problem). A one-line teaser (below) shows the top
-   finding even while collapsed, so nothing important is hidden, just
-   not force-expanded. */
+   Closed by default, with a one-line teaser showing the top finding even
+   while collapsed -- nothing important is hidden, just not force-
+   expanded. Used for ToS;DR's point list and (still, as a fallback) any
+   plain collapsible; the red-flags/tracker category groupings below use
+   the shared .category-card component instead, which carries a per-item
+   count and severity color, not just a plain toggle. */
 details.summary-section {
-  font-size: 0.82rem;
-  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-3);
 }
 details.summary-section summary {
   cursor: pointer;
   font-weight: 600;
-  padding: 0.3rem 0;
+  padding: var(--space-2) 0;
   list-style: none;
 }
 details.summary-section summary::-webkit-details-marker { display: none; }
 details.summary-section summary::before {
   content: "▸";
   display: inline-block;
-  margin-right: 0.35rem;
+  margin-right: var(--space-2);
   color: var(--text-muted);
   transition: transform 0.15s;
 }
 details.summary-section[open] summary::before { transform: rotate(90deg); }
-details.summary-section ul { margin: 0.3rem 0 0.3rem 1.35rem; padding: 0; }
-details.summary-section.red-flags summary { color: var(--danger); }
-.detail-teaser { font-size: 0.8rem; color: var(--text-muted); margin: 0.15rem 0 0.4rem 1.35rem; }
+details.summary-section ul { margin: var(--space-2) 0 var(--space-2) 1.35rem; padding: 0; }
+.detail-teaser { font-size: var(--text-sm); color: var(--text-muted); margin: var(--space-1) 0 var(--space-4) 1.35rem; }
 
-/* ---------- AI explainer (llmUI) ----------
-   Sits right after the at-a-glance badges -- the fast "just tell me
-   simply" entry point, not a buried afterthought between the two
-   detailed channels below (where it used to live). Given a card of its
-   own (rather than sitting bare in the flow) so it visually reads as the
-   one thing worth reading first. Findings render as short labelled rows
-   (What it does / Watch out for / Protect yourself / Bottom line)
-   instead of a dense paragraph -- see popup.js's parseAiSummary and
-   webllm/client-src.js's four-line prompt format. */
+/* ---------- AI explainer ----------
+   Sits right after the overall status -- the fast "just tell me simply"
+   entry point, not a buried afterthought. Findings render as short
+   labelled rows (What it does / Watch out for / Protect yourself /
+   Bottom line) instead of a dense paragraph -- see popup.js's
+   parseAiSummary and webllm/client-src.js's four-line prompt format. */
 .ai-explain-block {
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: var(--space-3);
-  margin-bottom: var(--space-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
 }
 .ai-explain-heading {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: 700;
   color: var(--brown-dark);
-  margin: 0 0 0.2rem;
+  margin: 0 0 var(--space-1);
 }
-.ai-explain-sub { margin: 0 0 var(--space-2); }
-/* llmUI round 2: this used to also carry .link-btn (text-only, no
-   background) -- easy to miss entirely, per user feedback. It's a plain
-   <button> now (see popup.js), so it inherits the base filled-button
-   look; this just recolors it to --accent (lighter than the main
-   "Check this site" button's --brown-dark) so it doesn't compete with
-   that primary action while still clearly reading as clickable. */
+.ai-explain-sub { margin: 0 0 var(--space-3); }
 .ai-explain-btn {
   background: var(--accent);
   color: var(--surface);
@@ -319,13 +410,13 @@ details.summary-section.red-flags summary { color: var(--danger); }
 .ai-explain-btn:hover { background: var(--accent-hover); }
 .ai-explain-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Native <progress> instead of the old raw "Loading model... 42%" text
-   spam -- one glance tells you it's working without reading anything. */
+/* Native <progress> instead of raw "Loading model... 42%" text -- one
+   glance tells you it's working without reading anything. */
 .ai-progress {
   display: block;
   width: 100%;
   height: 6px;
-  margin: 0.4rem 0;
+  margin: var(--space-3) 0;
   border: none;
   border-radius: var(--radius-pill);
   overflow: hidden;
@@ -334,35 +425,30 @@ details.summary-section.red-flags summary { color: var(--danger); }
 .ai-progress::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-pill); }
 .ai-progress::-moz-progress-bar { background: var(--accent); border-radius: var(--radius-pill); }
 
-.ai-status { margin: 0.2rem 0; }
+.ai-status { margin: var(--space-1) 0; }
 
 .ai-finding-row {
-  font-size: 0.85rem;
-  margin: 0 0 0.35rem;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
   line-height: 1.35;
 }
 .ai-finding-row:last-child { margin-bottom: 0; }
 .ai-finding-row strong { color: var(--brown-dark); }
 
-/* llmUI round 2: "Protect yourself" is the one row a user can actually
-   act on, so it gets a small amount of visual weight to stand out from
-   the other three plain rows -- reuses the same green already meaning
-   "good/safe" via .risk-low, rather than introducing a new color. */
+/* "Protect yourself" is the one row a user can actually act on, so it
+   gets a small amount of visual weight -- reuses the shared low-severity
+   green ("good/actionable"), not a new one-off color. */
 .ai-finding-row-protect {
-  background: #dff0d8;
-  border-left: 3px solid #2f5c26;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 0.4rem 0.55rem;
+  background: var(--severity-low-bg);
+  border-left: 3px solid var(--severity-low-fg);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: var(--space-3) var(--space-4);
 }
-.ai-finding-row-protect strong { color: #2f5c26; }
+.ai-finding-row-protect strong { color: var(--severity-low-fg); }
 
 /* ---------- Saved sites: compact rows, lazy-expand ----------
-   Previously each saved site rendered its FULL result inline (banner +
-   both channels + AI summary button) permanently, for every saved site,
-   every time the popup opened -- the main cause of "scrolling is worse
-   than reading the policy." Now each row shows only domain + date +
-   both risk badges (cheap to compute, already stored/cached), and the
-   full breakdown renders lazily on first expand -- see popup.js. */
+   Each row shows only domain + date + both risk badges; the full
+   breakdown renders lazily on first expand -- see popup.js. */
 .saved-item {
   border-bottom: 1px solid var(--border);
 }
@@ -372,11 +458,11 @@ details.summary-section.red-flags summary { color: var(--danger); }
   background: none;
   border: none;
   border-radius: 0;
-  padding: var(--space-3) 0.15rem;
+  padding: var(--space-5) var(--space-1);
   margin: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   cursor: pointer;
   color: var(--text);
   font-weight: 400;
@@ -386,35 +472,30 @@ details.summary-section.red-flags summary { color: var(--danger); }
 .saved-row-main { flex: 1; min-width: 0; }
 .saved-row-main strong {
   display: block;
-  font-size: 0.87rem;
+  font-size: var(--text-sm);
   color: var(--brown-dark);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.saved-row-date { font-size: 0.72rem; color: var(--text-muted); }
-.saved-row-badges { display: flex; gap: 0.3rem; flex-shrink: 0; }
+.saved-row-date { font-size: var(--text-xs); color: var(--text-muted); }
+.saved-row-badges { display: flex; gap: var(--space-2); flex-shrink: 0; }
 .saved-row-badges .risk-badge {
-  padding: 0.15rem 0.4rem;
-  font-size: 0.68rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
   margin-bottom: 0;
 }
 .saved-row-chevron {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   transition: transform 0.15s;
   flex-shrink: 0;
 }
-/* .saved-item is a native <details> element -- open/closed visibility of
-   everything after <summary> (.saved-row) is handled by the browser for
-   free; this just rotates the chevron and hides the default marker to
-   match the collapsible style used elsewhere (see
-   details.summary-section above). */
 .saved-item summary { list-style: none; }
 .saved-item summary::-webkit-details-marker { display: none; }
 .saved-item[open] .saved-row-chevron { transform: rotate(90deg); }
 .saved-item-detail {
-  padding: 0 0.15rem var(--space-3);
+  padding: 0 var(--space-1) var(--space-5);
 }
 
 .saved-item-header {
@@ -427,69 +508,79 @@ details.summary-section.red-flags summary { color: var(--danger); }
   background: none;
   color: var(--danger);
   padding: 0;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   margin: 0;
 }
 .remove-btn:hover { background: none; text-decoration: underline; }
 
+/* ---------- Empty states ----------
+   One shared template for every "nothing here" moment that's a genuinely
+   positive/neutral result (nothing saved yet, no trackers found, no red
+   flags found) -- previously the red-flags case used a bare one-line
+   <p> while the other two used this fuller icon+centered treatment,
+   which read as three different levels of "done-ness" for what's really
+   the same kind of message. Data-UNAVAILABLE messages (ToS;DR/Tracker
+   Radar lookup failed, no review found) intentionally stay plain muted
+   text, not this template -- "we don't have data" isn't the same feeling
+   as "we checked and it's clean," and shouldn't look identical to it. */
 .empty-state {
   text-align: center;
-  padding: 2rem var(--space-3);
+  padding: var(--space-7) var(--space-5);
   color: var(--text-muted);
 }
-.empty-state .empty-icon { font-size: 1.6rem; margin-bottom: var(--space-2); }
-.empty-state p { margin: 0; font-size: 0.85rem; }
+.empty-state .empty-icon { font-size: 1.5rem; margin-bottom: var(--space-3); }
+.empty-state p { margin: 0; font-size: var(--text-sm); }
+.empty-state.empty-state--good .empty-icon { color: var(--severity-low-fg); }
+.empty-state.empty-state--good p { color: var(--text); font-weight: 600; }
 
-/* --- Disclosed vs. Observed channels (observedUI) ---
+/* ---------- Disclosed vs. Observed channels ----------
    Two clearly separate channels, never a blended score -- see
-   risk_model.js and root README.md "Two-channel risk model". Used to be
-   two stacked "channel-heading" sections (see git history); now two tabs
-   -- a smaller pill/segmented-control style (rather than reusing the
-   top-level .tabs underline look verbatim) so the hierarchy between the
-   popup's top-level "This Site"/"Saved" tabs and this per-site sub-tab
-   pair stays visually obvious. Built per render, not by id -- see
-   popup.js's buildChannelTabs. */
+   risk_model.js and root README.md "Two-channel risk model". A smaller
+   pill/segmented-control style (rather than reusing the top-level .tabs
+   underline look) keeps the hierarchy between the popup's top-level tabs
+   and this per-site sub-tab pair visually obvious. Built per render, not
+   by id -- see popup.js's buildChannelTabs. */
 .channel-tabs {
   display: flex;
-  gap: 0.2rem;
+  gap: var(--space-1);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  padding: 0.2rem;
-  margin: 0.9rem 0 0.6rem;
+  padding: var(--space-1);
+  margin: var(--space-5) 0 var(--space-4);
 }
 .channel-tab {
   flex: 1;
   width: auto;
   margin: 0;
-  padding: 0.35rem 0.5rem;
+  padding: var(--space-3) var(--space-4);
   background: transparent;
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   border: none;
   border-radius: var(--radius-pill);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 .channel-tab:hover { color: var(--brown-dark); }
 .channel-tab.active { background: var(--brown-dark); color: var(--surface); }
 
-/* Cross-tab disagreement signal (design spec) -- a small dot, not a
-   second banner; see popup.js's setObservedTabFlag/
-   renderChannelAgreementBanner for where the fuller explanation lives. */
+/* Cross-tab disagreement signal -- a small dot, not a second banner; see
+   popup.js's setObservedTabFlag/renderChannelAgreementBanner for where
+   the fuller explanation lives. */
 .channel-tab-flag {
   display: inline-block;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--danger);
+  background: var(--severity-high-fg);
 }
-.channel-tab.active .channel-tab-flag { background: #f8d7da; }
+.channel-tab.active .channel-tab-flag { background: var(--severity-high-bg); }
 
 .sr-only {
   position: absolute;
@@ -504,144 +595,133 @@ details.summary-section.red-flags summary { color: var(--danger); }
 .channel-panel.active { display: block; }
 
 .channel-disagreement-banner {
-  background: #fcf3cf;
-  border: 1px solid #e3c95c;
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.7rem;
-  margin-bottom: var(--space-2);
-  font-size: 0.82rem;
+  background: var(--severity-medium-bg);
+  border: 1px solid var(--severity-medium-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-4);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
 }
 .channel-disagreement-banner strong {
   display: block;
-  margin-bottom: 0.2rem;
+  margin-bottom: var(--space-1);
   color: var(--brown-dark);
 }
 .channel-disagreement-banner p { margin: 0; }
 
-/* ---------- Inline glossary (Observed round 3) ----------
-   Jargon terms (fingerprinting, third-party domain, high-risk,
-   ad/tracking-related, infrastructure) get a native <abbr title> instead
-   of a permanent glossary block -- hover (or a screen reader announcing
-   the title) reveals a plain-language definition. Costs zero visible
-   space for anyone who already knows the term; one hover for anyone who
-   doesn't. The dotted underline is the only visual hint it's there. */
-abbr[title] {
-  text-decoration: none;
-  border-bottom: 1px dotted var(--border-strong);
-  cursor: help;
-  color: var(--brown-mid);
-}
-
-/* ---------- Observed: top trackers + category cards (observedUI) ----------
-   Replaces round 4's chip row + single combined toggle. Round 4's actual
-   insight -- fewer decision points beats more always-visible text --
-   still holds and is kept: every card below starts collapsed, same as
-   the old combined toggle did. What changes is granularity: Advertising/
-   Analytics/Social get their own small cards instead of one merged
-   "ad & tracking" chip, per the design spec's "one card per tracker
-   category" requirement. See popup.js's _groupByCard/_buildTrackerCard. */
 .observed-top-trackers {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  margin: 0.15rem 0 0.5rem;
+  margin: var(--space-1) 0 var(--space-4);
 }
 
-.tracker-card-list-wrap { margin-top: 0.4rem; }
-.tracker-card {
+/* ---------- Shared category-card component ----------
+   One card per category (red-flag category on the Disclosed side,
+   tracker category on the Observed side), collapsed by default -- the
+   same progressive-disclosure pattern applied everywhere grouped data
+   appears, not just one section (design spec #3/#4). Previously the
+   Disclosed side rendered its categories as one flat list inside a
+   single collapsible while Observed used individually-expandable cards
+   -- two different structures for the same underlying idea. Both now
+   build on this one component; see popup.js's _buildCategoryCard. */
+.category-card-list-wrap { margin-top: var(--space-3); }
+.category-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-left: 3px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
-  margin-bottom: 0.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-4);
+  margin-bottom: var(--space-3);
 }
-.tracker-card:last-child { margin-bottom: 0; }
-.tracker-card--unknown { margin-top: 0.5rem; }
-.tracker-card--high { border-left-color: #a33322; }
-.tracker-card--medium { border-left-color: #7a5f0a; }
-.tracker-card--low { border-left-color: #2f5c26; }
-.tracker-card-summary {
+.category-card:last-child { margin-bottom: 0; }
+.category-card--unknown { margin-top: var(--space-3); border-left-color: var(--border-strong); }
+.category-card--high { border-left-color: var(--severity-high-fg); }
+.category-card--medium { border-left-color: var(--severity-medium-fg); }
+.category-card--low { border-left-color: var(--severity-low-fg); }
+.category-card-summary {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--brown-dark);
   cursor: pointer;
   list-style: none;
 }
-.tracker-card-summary::-webkit-details-marker { display: none; }
-.tracker-card-summary::before {
+.category-card-summary::-webkit-details-marker { display: none; }
+.category-card-summary::before {
   content: "▸";
   color: var(--text-muted);
   transition: transform 0.15s;
 }
-.tracker-card[open] .tracker-card-summary::before { transform: rotate(90deg); }
-.tracker-card-label { flex: 1; }
-.tracker-card-count {
+.category-card[open] .category-card-summary::before { transform: rotate(90deg); }
+.category-card-label { flex: 1; }
+.category-card-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 0.3rem;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--surface);
   border: 1px solid var(--border);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--text-muted);
 }
-.tracker-card-list { margin: 0.5rem 0 0 1.15rem; padding: 0; font-size: 0.8rem; }
-.tracker-card-list li { margin-bottom: 0.3rem; }
-.tracker-card-list li:last-child { margin-bottom: 0; }
-.tracker-card-note { font-size: 0.78rem; margin: 0.4rem 0 0; }
+.category-card-list { margin: var(--space-3) 0 0 1.15rem; padding: 0; font-size: var(--text-sm); }
+.category-card-list li { margin-bottom: var(--space-2); }
+.category-card-list li:last-child { margin-bottom: 0; }
+.category-card-note { font-size: var(--text-xs); margin: var(--space-3) 0 0; }
 
-/* actionUI: "Protect me from this site" bulk-remediation card. Sits above
-   the per-category cards in the Observed tab (see popup.js's
-   renderObservedResult), styled as its own accent-bordered card so it
-   reads as an action, not another info card -- same tokens as
-   .tracker-card, just a stronger left border to differentiate "do
-   something" from "here's information." */
+/* ---------- "Protect me from this site" ----------
+   Sits above the per-category cards in the Observed tab, styled as its
+   own accent-bordered card so it reads as an action, not another info
+   card -- same tokens as .category-card, just a stronger left border to
+   differentiate "do something" from "here's information." */
 .protect-section {
   background: var(--card);
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.7rem;
-  margin: 0.5rem 0 0.75rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-3) 0 var(--space-5);
 }
 .protect-intro {
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-3);
 }
 .protect-btn {
   width: 100%;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
-.protect-results { margin-top: 0.65rem; }
+.protect-results { margin-top: var(--space-4); }
 .protect-summary {
-  font-size: 0.83rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--brown-dark);
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-3);
 }
-.protect-tier { margin-bottom: 0.55rem; }
+.protect-tier { margin-bottom: var(--space-4); }
 .protect-tier:last-child { margin-bottom: 0; }
 .protect-tier-header {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 0.3rem;
+  margin: 0 0 var(--space-2);
 }
-.protect-tier--autofix .protect-tier-header { color: #2f5c26; }
+.protect-tier--autofix .protect-tier-header { color: var(--severity-low-fg); }
 .protect-tier--link .protect-tier-header { color: var(--accent-hover); }
 .protect-tier--explain .protect-tier-header { color: var(--text-muted); }
-.protect-tier-list { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.8rem; }
-.protect-tier-list li { margin-bottom: 0.3rem; }
+.protect-tier-list { margin: 0 0 0 1.1rem; padding: 0; font-size: var(--text-sm); }
+.protect-tier-list li { margin-bottom: var(--space-2); }
 .protect-tier-list li:last-child { margin-bottom: 0; }
-.protect-tier-note { font-size: 0.75rem; margin: 0.3rem 0 0; }
+.protect-tier-note { font-size: var(--text-xs); margin: var(--space-2) 0 0; }
 .protect-optout-link {
   color: var(--accent-hover);
   font-weight: 600;
@@ -649,29 +729,31 @@ abbr[title] {
 }
 .protect-optout-link:hover { color: var(--brown-dark); }
 
-/* actionUI round 2: real blocking/cookie-clearing mechanics -- status
-   line, customize picker, and recommend-and-confirm cards. Same card
-   language as .protect-section throughout (no new visual system). */
-.protect-blocked-status { margin-bottom: 0.5rem; }
+/* Real blocking/cookie-clearing mechanics -- status line, customize
+   picker, and recommend-and-confirm cards. Same card language as
+   .protect-section throughout, so these read as part of one system
+   rather than a separate add-on bolted onto it. */
+.protect-blocked-status { margin-bottom: var(--space-3); }
 .protect-blocked-status-line {
-  font-size: 0.83rem;
+  font-size: var(--text-base);
   font-weight: 600;
-  color: #2f5c26;
-  margin: 0 0 0.3rem;
+  color: var(--severity-low-fg);
+  margin: 0 0 var(--space-2);
 }
 .protect-unblock-btn {
   width: auto;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.72rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
   font-weight: 600;
   background: var(--surface);
   color: var(--brown-dark);
   border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
 }
 .protect-unblock-btn:hover { background: var(--card-hover); }
-.protect-unblock-all-btn { margin-top: 0.3rem; }
+.protect-unblock-all-btn { margin-top: var(--space-2); }
 
-.protect-customize { margin-bottom: 0.5rem; font-size: 0.8rem; }
+.protect-customize { margin-bottom: var(--space-3); font-size: var(--text-sm); }
 .protect-customize-summary {
   cursor: pointer;
   font-weight: 600;
@@ -681,25 +763,25 @@ abbr[title] {
 .protect-customize-summary::-webkit-details-marker { display: none; }
 .protect-customize-presets {
   border: none;
-  margin: 0.4rem 0 0;
+  margin: var(--space-3) 0 0;
   padding: 0;
 }
 .protect-customize-presets legend {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: var(--text-muted);
   padding: 0;
-  margin-bottom: 0.2rem;
+  margin-bottom: var(--space-1);
 }
 .protect-preset-option, .protect-advanced-option {
   display: block;
-  font-size: 0.78rem;
-  margin-bottom: 0.3rem;
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
   cursor: pointer;
 }
 .protect-customize-advanced {
-  margin-top: 0.4rem;
-  font-size: 0.78rem;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
 }
 .protect-customize-advanced summary {
   cursor: pointer;
@@ -707,77 +789,64 @@ abbr[title] {
   list-style: none;
 }
 .protect-customize-advanced summary::-webkit-details-marker { display: none; }
-.protect-customize-advanced > label { margin-top: 0.35rem; }
+.protect-customize-advanced > label { margin-top: var(--space-3); }
 
 .protect-recommend-card {
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.6rem;
-  margin-top: 0.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-4);
+  margin-top: var(--space-3);
 }
 .protect-recommend-title {
-  font-size: 0.82rem;
+  font-size: var(--text-base);
   font-weight: 700;
   color: var(--brown-dark);
-  margin: 0 0 0.25rem;
+  margin: 0 0 var(--space-2);
 }
 .protect-recommend-explain {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: var(--text);
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-3);
 }
-.protect-recommend-actions { display: flex; gap: 0.4rem; }
+.protect-recommend-actions { display: flex; gap: var(--space-3); }
 .protect-confirm-btn {
   flex: 1;
-  font-size: 0.8rem;
-  padding: 0.35rem 0.5rem;
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-4);
 }
 .protect-decline-btn {
   flex: 0 0 auto;
-  font-size: 0.8rem;
-  padding: 0.35rem 0.6rem;
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-4);
   background: var(--surface);
   color: var(--text-muted);
   border: 1px solid var(--border);
 }
 .protect-decline-btn:hover { background: var(--card-hover); }
-.protect-recommend-error { color: var(--danger); margin-top: 0.4rem; }
-
-
-/* Empty/good state (design spec) -- shown INSTEAD OF the card layout
-   when trackerCount is exactly 0 and there's nothing unmatched either;
-   see popup.js's renderObservedResult. Reuses the base .empty-state
-   layout (already used by the Saved tab's empty state) with a green-
-   tinted recolor so a clean result reads as a reward, not a blank/error
-   state. */
-.observed-good-state .empty-icon { color: #2f5c26; }
-.observed-good-state p { color: var(--text); font-weight: 600; }
+.protect-recommend-error { color: var(--danger); margin-top: var(--space-3); font-size: var(--text-sm); }
 
 .observed-captured-note {
-  margin-top: 0.6rem;
-  padding-top: 0.5rem;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px dashed var(--border);
 }
 
-
-/* ---------- Glossary: shared hover-term component (glossaryUI) ----------
-   Reusable replacement for the old per-instance native <abbr title>
-   pattern (dotted underline + browser tooltip -- see git history). One
-   term = one call to GlossaryTooltip.wrapTerm() in popup.js; content
+/* ---------- Glossary: shared hover-term component ----------
+   One term = one call to GlossaryTooltip.wrapTerm() in popup.js; content
    lives in glossary.js, never hardcoded here or in a component. Used
-   consistently everywhere a jargon term appears, not just fingerprinting.
+   consistently everywhere a jargon term appears.
 
-   Trigger is a small "i" info-circle rather than the plain "?" used
-   before this round -- "?" reads ambiguously as help/error/unknown,
-   while a circled "i" is a more widely recognized "hover for info"
-   affordance. Sized for an easy hover target (padding + a negative
-   margin keep the hit area larger than the visual footprint) without
-   competing visually with the term text next to it. */
+   Trigger is a small "i" info-circle -- "?" reads ambiguously as
+   help/error/unknown, while a circled "i" is a more widely recognized
+   "hover for info" affordance. Sized for an easy hover target (padding +
+   a negative margin keep the hit area larger than the visual footprint)
+   without competing visually with the term text next to it. */
 .glossary-term {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--space-2);
 }
 .glossary-trigger {
   display: inline-flex;
@@ -802,7 +871,7 @@ abbr[title] {
 }
 /* Hover/focus fills the circle solid -- a visible state change confirms
    "this is interactive" before the (deliberately delayed) tooltip ever
-   appears, per the design spec's hover-affordance requirement. */
+   appears. */
 .glossary-trigger:hover,
 .glossary-trigger:focus-visible {
   background: var(--brown-mid);
@@ -821,9 +890,9 @@ abbr[title] {
   max-width: calc(100vw - 16px);
   background: var(--card);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-popover);
-  padding: 0.6rem 0.7rem;
+  padding: var(--space-4) var(--space-5);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -847,28 +916,28 @@ abbr[title] {
 .glossary-tooltip--above .glossary-tooltip-arrow { bottom: -6px; border-top: 6px solid var(--card); }
 
 .glossary-tooltip-term {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--brown-dark);
-  margin: 0 0 0.3rem;
+  margin: 0 0 var(--space-2);
 }
 .glossary-tooltip-short {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.35;
   color: var(--text);
-  margin: 0 0 0.45rem;
+  margin: 0 0 var(--space-3);
 }
 .glossary-tooltip-example {
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   line-height: 1.3;
   color: var(--text-muted);
-  margin: 0 0 0.45rem;
-  padding-left: 0.5rem;
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-3);
   border-left: 2px solid var(--border-strong);
 }
 .glossary-tooltip-example strong { color: var(--brown-mid); font-weight: 700; }
 .glossary-tooltip-why {
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   line-height: 1.3;
   color: var(--text);
   margin: 0;
