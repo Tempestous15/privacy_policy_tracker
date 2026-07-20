@@ -95,17 +95,20 @@ function renderClassifierResult(container, analysis) {
 
   container.appendChild(riskBadge(analysis.riskLevel));
 
+  // extUI3: shares the same empty-state template as "no trackers found"
+  // and "nothing saved yet" -- three different "nothing here, and that's
+  // fine" moments used to render three different ways (this one was a
+  // bare one-line <p>); now they all read as the same kind of message.
   if (!analysis.categories.length) {
-    const p = document.createElement("p");
-    p.className = "summary-text";
-    p.textContent = "No red flags detected by the automated scan.";
-    container.appendChild(p);
+    const empty = document.createElement("div");
+    empty.className = "empty-state empty-state--good";
+    empty.innerHTML =
+      '<div class="empty-icon" aria-hidden="true">✅</div><p>No red flags detected in the policy text.</p>';
+    container.appendChild(empty);
     return;
   }
 
-  // extUI: collapsed by default (was force-opened via `details.open =
-  // true`) -- the single biggest contributor to "wall of text" on a site
-  // with several flagged categories. A one-line teaser naming the top
+  // Collapsed by default -- a one-line teaser naming the top
   // (highest-severity, first-matched) flag stays visible even collapsed,
   // so nothing important is hidden, just not force-expanded.
   const top = analysis.categories[0];
@@ -117,20 +120,41 @@ function renderClassifierResult(container, analysis) {
       : `Top concern: ${top.label} (+${analysis.categories.length - 1} more)`;
   container.appendChild(teaser);
 
-  const details = document.createElement("details");
-  details.className = "summary-section red-flags";
-  const summaryEl = document.createElement("summary");
-  summaryEl.textContent = `🚩 All red flags (${analysis.categories.length})`;
-  details.appendChild(summaryEl);
-  const ul = document.createElement("ul");
+  // extUI3: one card per flagged category, collapsed by default, instead
+  // of a single flat list of every category's first quoted match --
+  // brings this in line with the Observed tab's per-category tracker
+  // cards (design spec #3/#4: categories visible, items collapsed,
+  // applied everywhere grouped data appears, not just Observed). Shares
+  // _buildCategoryCard with _buildTrackerCard below rather than
+  // duplicating the card markup for a second time.
+  const cardList = document.createElement("div");
+  cardList.className = "category-card-list-wrap";
   for (const cat of analysis.categories) {
-    const li = document.createElement("li");
     const icon = RED_FLAG_SEVERITY_ICON[cat.severity] || "ℹ️";
-    li.textContent = `${icon} ${cat.label}` + (cat.matches.length ? `: “${cat.matches[0]}”` : "");
-    ul.appendChild(li);
+    if (!cat.matches.length) {
+      // No captured excerpt to show -- not worth a collapsible card with
+      // an empty list inside it, so this stays a plain line.
+      const p = document.createElement("p");
+      p.className = "category-card-note";
+      p.textContent = `${icon} ${cat.label}`;
+      cardList.appendChild(p);
+      continue;
+    }
+    cardList.appendChild(
+      _buildCategoryCard({
+        severityClass: cat.severity,
+        label: `${icon} ${cat.label}`,
+        count: cat.matches.length,
+        items: cat.matches,
+        renderItem: (m) => {
+          const li = document.createElement("li");
+          li.textContent = `“${m}”`;
+          return li;
+        },
+      })
+    );
   }
-  details.appendChild(ul);
-  container.appendChild(details);
+  container.appendChild(cardList);
 }
 
 const TOSDR_SEVERITY_ICON = { good: "✅", blocker: "🚫", bad: "⚠️", neutral: "ℹ️" };
@@ -275,7 +299,7 @@ const CARD_SOCIAL_CATEGORIES = new Set([
 // Card definitions in fixed high-to-low severity display order. Severity
 // reuses the same three-value scale (high/medium/low) as the risk badges
 // and old chips -- one consistent color language, not a new one just for
-// cards (see popup.css's .tracker-card--high/medium/low).
+// cards (see popup.css's .category-card--high/medium/low).
 const CARD_DEFS = {
   fingerprinting: { label: "Fingerprinting & High-Risk", icon: "⚠️", severity: "high" },
   advertising: { label: "Advertising", icon: "🎯", severity: "medium" },
@@ -311,58 +335,84 @@ function _groupByCard(matchedDomains) {
 // to the individual trackers found within it (design spec's card
 // requirement). Native <details>/<summary>, same pattern as the saved-
 // site rows and the old single toggle this replaces.
-function _buildTrackerCard(group) {
+// extUI3: shared primitive behind EVERY collapsed-by-default category
+// card in the popup -- the Observed tab's tracker categories and (see
+// renderClassifierResult above) the Disclosed tab's red-flag categories
+// both build on this instead of each having their own near-identical
+// card markup. `label` is a string or a DOM node/fragment (e.g. a
+// GlossaryTooltip-wrapped term); `beforeList`, if given, is inserted
+// between the summary and the item list (used for the unmatched-domains
+// card's coverage note below).
+function _buildCategoryCard({ severityClass, label, count, beforeList, items, renderItem }) {
   const details = document.createElement("details");
-  details.className = `tracker-card tracker-card--${group.def.severity}`;
+  details.className = `category-card category-card--${severityClass}`;
 
   const summaryEl = document.createElement("summary");
-  summaryEl.className = "tracker-card-summary";
-  const label = document.createElement("span");
-  label.className = "tracker-card-label";
+  summaryEl.className = "category-card-summary";
+  const labelEl = document.createElement("span");
+  labelEl.className = "category-card-label";
+  if (typeof label === "string") labelEl.textContent = label;
+  else labelEl.appendChild(label);
+  const countEl = document.createElement("span");
+  countEl.className = "category-card-count";
+  countEl.textContent = String(count);
+  summaryEl.appendChild(labelEl);
+  summaryEl.appendChild(countEl);
+  details.appendChild(summaryEl);
+
+  if (beforeList) details.appendChild(beforeList);
+
+  const ul = document.createElement("ul");
+  ul.className = "category-card-list";
+  for (const item of items) ul.appendChild(renderItem(item));
+  details.appendChild(ul);
+  return details;
+}
+
+function _buildTrackerCard(group) {
   // The Fingerprinting & High-Risk card's label carries the same
   // GlossaryTooltip used everywhere else a jargon term appears -- one
   // consistent hover-to-learn component, not a one-off for card labels.
+  let label;
   if (group.key === "fingerprinting") {
-    label.appendChild(document.createTextNode(`${group.def.icon} `));
-    label.appendChild(GlossaryTooltip.wrapTerm("Fingerprinting", "fingerprinting"));
-    label.appendChild(document.createTextNode(" & High-Risk"));
+    const frag = document.createDocumentFragment();
+    frag.appendChild(document.createTextNode(`${group.def.icon} `));
+    frag.appendChild(GlossaryTooltip.wrapTerm("Fingerprinting", "fingerprinting"));
+    frag.appendChild(document.createTextNode(" & High-Risk"));
+    label = frag;
   } else {
-    label.textContent = `${group.def.icon} ${group.def.label}`;
+    label = `${group.def.icon} ${group.def.label}`;
   }
-  const count = document.createElement("span");
-  count.className = "tracker-card-count";
-  count.textContent = String(group.entries.length);
-  summaryEl.appendChild(label);
-  summaryEl.appendChild(count);
-  details.appendChild(summaryEl);
 
-  const ul = document.createElement("ul");
-  ul.className = "tracker-card-list";
-  for (const entry of group.entries) {
-    const { label: entryLabel, detail, glossaryKey } = _explainMatchedDomain(entry);
-    const li = document.createElement("li");
-    const strong = document.createElement("strong");
-    strong.textContent = entryLabel;
-    li.appendChild(strong);
-    if (detail) li.appendChild(document.createTextNode(" -- " + detail));
-    // Folds the raw category name in parenthetically, hoverable, right
-    // after its already-plain-English explanation -- same "plain
-    // English first, jargon term optional and hoverable" pattern the
-    // summary sentence below uses for "third-party". Only categories
-    // mapped in CATEGORY_TO_GLOSSARY_KEY get this; the self-explanatory
-    // ones (Advertising, Analytics, ...) just keep their plain sentence.
-    if (glossaryKey) {
-      const entryTerm = window.Glossary.getGlossaryTerm(glossaryKey);
-      if (entryTerm) {
-        li.appendChild(document.createTextNode(" ("));
-        li.appendChild(GlossaryTooltip.wrapTerm(entryTerm.term, glossaryKey));
-        li.appendChild(document.createTextNode(")"));
+  return _buildCategoryCard({
+    severityClass: group.def.severity,
+    label,
+    count: group.entries.length,
+    items: group.entries,
+    renderItem: (entry) => {
+      const { label: entryLabel, detail, glossaryKey } = _explainMatchedDomain(entry);
+      const li = document.createElement("li");
+      const strong = document.createElement("strong");
+      strong.textContent = entryLabel;
+      li.appendChild(strong);
+      if (detail) li.appendChild(document.createTextNode(" -- " + detail));
+      // Folds the raw category name in parenthetically, hoverable, right
+      // after its already-plain-English explanation -- same "plain
+      // English first, jargon term optional and hoverable" pattern the
+      // summary sentence below uses for "third-party". Only categories
+      // mapped in CATEGORY_TO_GLOSSARY_KEY get this; the self-explanatory
+      // ones (Advertising, Analytics, ...) just keep their plain sentence.
+      if (glossaryKey) {
+        const entryTerm = window.Glossary.getGlossaryTerm(glossaryKey);
+        if (entryTerm) {
+          li.appendChild(document.createTextNode(" ("));
+          li.appendChild(GlossaryTooltip.wrapTerm(entryTerm.term, glossaryKey));
+          li.appendChild(document.createTextNode(")"));
+        }
       }
-    }
-    ul.appendChild(li);
-  }
-  details.appendChild(ul);
-  return details;
+      return li;
+    },
+  });
 }
 
 // The "top few trackers" line shown directly under the Observed badge,
@@ -881,7 +931,7 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot, siteD
   // branch summary for the reasoning.
   if (profile.trackerCount === 0 && !hasUnmatched) {
     const empty = document.createElement("div");
-    empty.className = "empty-state observed-good-state";
+    empty.className = "empty-state empty-state--good";
     empty.innerHTML =
       '<div class="empty-icon" aria-hidden="true">✅</div><p>No trackers detected on this site.</p>';
     container.appendChild(empty);
@@ -939,42 +989,34 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot, siteD
   // card layout. See _groupByCard/_buildTrackerCard above.
   if (groups.length) {
     const cardList = document.createElement("div");
-    cardList.className = "tracker-card-list-wrap";
+    cardList.className = "category-card-list-wrap";
     for (const group of groups) cardList.appendChild(_buildTrackerCard(group));
     container.appendChild(cardList);
   }
 
   if (hasUnmatched) {
-    const details = document.createElement("details");
-    details.className = "tracker-card tracker-card--unknown";
-    const summaryEl = document.createElement("summary");
-    summaryEl.className = "tracker-card-summary";
-    const label = document.createElement("span");
-    label.className = "tracker-card-label";
-    label.textContent = "❔ Not yet in our tracker index";
-    const count = document.createElement("span");
-    count.className = "tracker-card-count";
-    count.textContent = String(profile.unmatchedDomains.length);
-    summaryEl.appendChild(label);
-    summaryEl.appendChild(count);
-    details.appendChild(summaryEl);
+    let note = null;
     if (profile.coverage && profile.coverage.riskScoreWithheld) {
-      const note = document.createElement("p");
-      note.className = "muted tracker-card-note";
+      note = document.createElement("p");
+      note.className = "muted category-card-note";
       note.textContent =
         "Not enough of what was contacted matched our tracker index to score confidently -- this list is " +
         "everything real that was seen, even though we cannot yet say what most of it does.";
-      details.appendChild(note);
     }
-    const ul = document.createElement("ul");
-    ul.className = "tracker-card-list";
-    for (const d of profile.unmatchedDomains) {
-      const li = document.createElement("li");
-      li.textContent = d;
-      ul.appendChild(li);
-    }
-    details.appendChild(ul);
-    container.appendChild(details);
+    container.appendChild(
+      _buildCategoryCard({
+        severityClass: "unknown",
+        label: "❔ Not yet in our tracker index",
+        count: profile.unmatchedDomains.length,
+        beforeList: note,
+        items: profile.unmatchedDomains,
+        renderItem: (d) => {
+          const li = document.createElement("li");
+          li.textContent = d;
+          return li;
+        },
+      })
+    );
   }
 
   const capturedNote = document.createElement("p");
@@ -983,41 +1025,108 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot, siteD
   container.appendChild(capturedNote);
 }
 
-// ---------- At-a-glance dual badge row ----------
-// New in extUI: both channels' badges side by side, above either
-// section's detail -- an instant read without scrolling. Still two
-// distinct badges (Disclosed = local classifier, Observed = Tracker
-// Radar), never combined into one value -- see risk_model.js's "never
-// blend" rule. Returns the Observed cell so the caller can fill it in
-// once that lookup resolves (see renderObservedResult's glanceBadgeSlot
-// param) -- the classifier badge renders immediately since it's
-// synchronous.
-function renderGlanceRow(container, classifierAnalysis) {
-  const row = document.createElement("div");
-  row.className = "glance-row";
+// ---------- Overall status (design spec: the very first thing shown) ----
+// A single glanceable, color-coded takeaway combining severity across
+// Disclosed and Observed -- replaces the old side-by-side dual-badge
+// glance row. That row is redundant now: each tab already shows its own
+// channel's badge inline, so showing both again, side by side, before
+// either tab added no information a user didn't already get one tap
+// later -- it just used up the most valuable screen position (the very
+// first thing seen) on something that wasn't the single clearest read.
+// This IS the one combined read, so it earns that position instead.
+// Still never blends the two channels into one score (risk_model.js's
+// "never blend" rule stands) -- picking the worse of two already-
+// computed levels for color is the same operation setObservedTabFlag's
+// disagreement comparison already does elsewhere, just for color instead
+// of a flag.
+const SEVERITY_RANK = { low: 0, medium: 1, high: 2 };
 
-  const disclosedCol = document.createElement("div");
-  disclosedCol.className = "glance-col";
-  const disclosedLabel = document.createElement("span");
-  disclosedLabel.className = "glance-label";
-  disclosedLabel.textContent = "Disclosed";
-  disclosedCol.appendChild(disclosedLabel);
-  disclosedCol.appendChild(riskBadge(classifierAnalysis ? classifierAnalysis.riskLevel : "unknown"));
+function _worseSeverity(a, b) {
+  const ra = a in SEVERITY_RANK ? SEVERITY_RANK[a] : -1;
+  const rb = b in SEVERITY_RANK ? SEVERITY_RANK[b] : -1;
+  if (ra === -1 && rb === -1) return null;
+  if (ra === -1) return b;
+  if (rb === -1) return a;
+  return ra >= rb ? a : b;
+}
 
-  const observedCol = document.createElement("div");
-  observedCol.className = "glance-col";
-  const observedLabel = document.createElement("span");
-  observedLabel.className = "glance-label";
-  observedLabel.textContent = "Observed";
-  observedCol.appendChild(observedLabel);
-  const observedBadgeSlot = document.createElement("span");
-  observedBadgeSlot.appendChild(riskBadge(null)); // placeholder until the shared lookup resolves
-  observedCol.appendChild(observedBadgeSlot);
+function _overallStatusCopy(level, concernCount) {
+  if (level === "high") {
+    return {
+      icon: "🔴",
+      text: concernCount ? `${concernCount} thing${concernCount === 1 ? "" : "s"} worth your attention` : "Several things worth your attention",
+    };
+  }
+  if (level === "medium") {
+    return {
+      icon: "🟡",
+      text: concernCount ? `${concernCount} thing${concernCount === 1 ? "" : "s"} worth a look` : "A few things worth a look",
+    };
+  }
+  if (level === "low") {
+    return { icon: "🟢", text: "Looking pretty clean" };
+  }
+  return { icon: "⚪", text: "Checking this site…" };
+}
 
-  row.appendChild(disclosedCol);
-  row.appendChild(observedCol);
-  container.appendChild(row);
-  return observedBadgeSlot;
+function _fillOverallStatus(el, level, concernCount) {
+  const { icon, text } = _overallStatusCopy(level, concernCount);
+  el.dataset.level = level || "unknown";
+  el.querySelector(".overall-status-icon").textContent = icon;
+  el.querySelector(".overall-status-text").textContent = text;
+}
+
+// Renders immediately with only the (synchronous) classifier result
+// available -- updated in place once the Observed lookup resolves, same
+// "show something now, refine when data arrives" approach the Observed
+// badge slot already used. Returns the element so renderSiteResult can
+// finish it later.
+function renderOverallStatus(container, disclosedLevel) {
+  const el = document.createElement("div");
+  el.className = "overall-status";
+  el.innerHTML = '<span class="overall-status-icon" aria-hidden="true"></span><span class="overall-status-text"></span>';
+  container.appendChild(el);
+  _fillOverallStatus(el, disclosedLevel, null);
+  return el;
+}
+
+// Completes the status once the Observed lookup settles, and -- design
+// spec: "don't bury [Protect me] only inside the observed tab" -- adds a
+// compact entry point right in the banner when there's actually something
+// to protect against. This is a PROXY to the real button already
+// rendered inside the Observed tab (via renderObservedResult, called
+// just before this), not a second copy of the tiered-action logic:
+// clicking it switches to the Observed tab and clicks that real button,
+// which only classifies/displays (read-only) until the user separately
+// confirms an actual action -- see _buildProtectMeSection.
+function finishOverallStatus(el, classifierAnalysis, observedProfile, observedLevel, observedTabBtn, observedContainer) {
+  const disclosedLevel = classifierAnalysis ? classifierAnalysis.riskLevel : null;
+  const level = _worseSeverity(disclosedLevel, observedLevel);
+  const concernCount =
+    (classifierAnalysis ? classifierAnalysis.categories.length : 0) +
+    (observedProfile ? _groupByCard(observedProfile.matchedDomains || []).length : 0);
+  _fillOverallStatus(el, level, concernCount || null);
+
+  const existingCta = el.querySelector(".overall-status-cta");
+  if (existingCta) existingCta.remove();
+  if (!observedProfile || !window.TrackerRemediation) return;
+
+  const { groups } = window.TrackerRemediation.classifySite(observedProfile.matchedDomains || []);
+  if (!groups.autoFix.length) return;
+
+  const cta = document.createElement("button");
+  cta.type = "button";
+  cta.className = "overall-status-cta";
+  cta.textContent = `🛡️ Protect me from this site (${groups.autoFix.length})`;
+  cta.addEventListener("click", () => {
+    observedTabBtn.click();
+    const protectBtn = observedContainer.querySelector(".protect-btn");
+    if (protectBtn) {
+      protectBtn.scrollIntoView({ block: "nearest" });
+      protectBtn.click();
+    }
+  });
+  el.appendChild(cta);
 }
 
 // Cross-channel comparison -- a pure computation from already-settled
@@ -1382,7 +1491,9 @@ async function renderSiteResult(container, site) {
   const classifierAnalysis =
     typeof RedFlagsEngine !== "undefined" && site.text ? RedFlagsEngine.analyze(site.text) : null;
 
-  const glanceObservedSlot = renderGlanceRow(container, classifierAnalysis);
+  // design spec: the very first thing shown is one combined glanceable
+  // status -- see renderOverallStatus/finishOverallStatus above.
+  const statusEl = renderOverallStatus(container, classifierAnalysis ? classifierAnalysis.riskLevel : null);
 
   // Not awaited here -- kicked off once, shared by the AI explainer below
   // and by the Disclosed/Observed tabs further down.
@@ -1393,7 +1504,7 @@ async function renderSiteResult(container, site) {
 
   addAiExplainBlock(container, site.text, classifierAnalysis, settledPromise);
 
-  const { disclosedPanel, observedPanel, flagDot } = buildChannelTabs(container);
+  const { disclosedPanel, observedPanel, observedTabBtn, flagDot } = buildChannelTabs(container);
 
   if (site.policyUrl) {
     const link = document.createElement("p");
@@ -1431,7 +1542,11 @@ async function renderSiteResult(container, site) {
   renderChannelAgreementBanner(bannerSlot, comparison);
   setObservedTabFlag(flagDot, comparison);
   renderTosdrResult(tosdrContainer, tosdrSettled);
-  renderObservedResult(observedContainer, observedSettled, glanceObservedSlot, site.domain);
+  renderObservedResult(observedContainer, observedSettled, null, site.domain);
+
+  const observedProfile = observedSettled.status === "fulfilled" ? observedSettled.value : null;
+  const observedLevel = observedProfile ? SiteRiskModel.observedLevelFromRiskScore(observedProfile.riskScore) : null;
+  finishOverallStatus(statusEl, classifierAnalysis, observedProfile, observedLevel, observedTabBtn, observedContainer);
 }
 
 async function getCurrentTab() {
