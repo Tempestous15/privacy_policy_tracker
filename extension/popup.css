@@ -597,6 +597,58 @@ abbr[title] {
 .tracker-card-list li:last-child { margin-bottom: 0; }
 .tracker-card-note { font-size: 0.78rem; margin: 0.4rem 0 0; }
 
+/* actionUI: "Protect me from this site" bulk-remediation card. Sits above
+   the per-category cards in the Observed tab (see popup.js's
+   renderObservedResult), styled as its own accent-bordered card so it
+   reads as an action, not another info card -- same tokens as
+   .tracker-card, just a stronger left border to differentiate "do
+   something" from "here's information." */
+.protect-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+  margin: 0.5rem 0 0.75rem;
+}
+.protect-intro {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+}
+.protect-btn {
+  width: 100%;
+  font-size: 0.85rem;
+}
+.protect-results { margin-top: 0.65rem; }
+.protect-summary {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--brown-dark);
+  margin: 0 0 0.5rem;
+}
+.protect-tier { margin-bottom: 0.55rem; }
+.protect-tier:last-child { margin-bottom: 0; }
+.protect-tier-header {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.3rem;
+}
+.protect-tier--autofix .protect-tier-header { color: #2f5c26; }
+.protect-tier--link .protect-tier-header { color: var(--accent-hover); }
+.protect-tier--explain .protect-tier-header { color: var(--text-muted); }
+.protect-tier-list { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.8rem; }
+.protect-tier-list li { margin-bottom: 0.3rem; }
+.protect-tier-list li:last-child { margin-bottom: 0; }
+.protect-tier-note { font-size: 0.75rem; margin: 0.3rem 0 0; }
+.protect-optout-link {
+  color: var(--accent-hover);
+  font-weight: 600;
+  text-decoration: underline;
+}
+.protect-optout-link:hover { color: var(--brown-dark); }
+
 /* Empty/good state (design spec) -- shown INSTEAD OF the card layout
    when trackerCount is exactly 0 and there's nothing unmatched either;
    see popup.js's renderObservedResult. Reuses the base .empty-state

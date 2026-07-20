@@ -378,6 +378,153 @@ function _topTrackersLine(groups, max = 3) {
   return extra > 0 ? `${names.join(", ")}, +${extra} more` : names.join(", ");
 }
 
+// ---------- actionUI: "Protect me from this site" ----------
+// Bulk remediation action for the Observed tab. Gated entirely behind an
+// explicit button click -- nothing here runs on render, no tracker is
+// touched and no opt-out link is followed until the user clicks something
+// themselves (same reasoning as the product's no-data-collection stance:
+// the user stays in control of anything leaving their device). Uses
+// window.TrackerRemediation (tracker_remediation.js) for classification --
+// this file only renders; it never re-derives which tier a tracker is in.
+//
+// IMPORTANT: manifest.json does not request the declarativeNetRequest
+// permission (see actionUI branch notes), so "Auto-fix" cannot actually
+// block network requests yet -- it is rendered honestly as a preview of
+// what a real block would cover, not a live block. Adding real blocking
+// later only requires wiring an actual declarativeNetRequest call in here;
+// the tier classification and UI already reflect the real breakdown.
+function _uniqueOptOutLinks(flagAndLinkEntries) {
+  const byUrl = new Map();
+  for (const entry of flagAndLinkEntries) {
+    const optOut = entry.optOut || {};
+    const key = optOut.url || "unknown";
+    if (!byUrl.has(key)) {
+      byUrl.set(key, { label: optOut.label || "Opt-out page", url: optOut.url, entries: [] });
+    }
+    byUrl.get(key).entries.push(entry);
+  }
+  return Array.from(byUrl.values());
+}
+
+function _buildProtectResultTier(iconLabel, className, countLabel) {
+  const wrap = document.createElement("div");
+  wrap.className = `protect-tier ${className}`;
+  const header = document.createElement("p");
+  header.className = "protect-tier-header";
+  header.textContent = `${iconLabel} — ${countLabel}`;
+  wrap.appendChild(header);
+  return wrap;
+}
+
+function _renderProtectResults(resultsSlot, matchedDomains) {
+  const { items, groups } = window.TrackerRemediation.classifySite(matchedDomains);
+  resultsSlot.innerHTML = "";
+
+  const summary = document.createElement("p");
+  summary.className = "protect-summary";
+  summary.textContent =
+    `${groups.autoFix.length} tracker${groups.autoFix.length === 1 ? "" : "s"} blocked (preview), ` +
+    `${groups.flagAndLink.length} opt-out link${groups.flagAndLink.length === 1 ? "" : "s"} available, ` +
+    `${groups.flagAndExplain.length} couldn't be blocked`;
+  resultsSlot.appendChild(summary);
+
+  if (groups.autoFix.length) {
+    const tier = _buildProtectResultTier("🛡️ Blocked (preview)", "protect-tier--autofix", String(groups.autoFix.length));
+    const ul = document.createElement("ul");
+    ul.className = "protect-tier-list";
+    for (const entry of groups.autoFix) {
+      const { label } = _explainMatchedDomain(entry);
+      const li = document.createElement("li");
+      li.textContent = label;
+      ul.appendChild(li);
+    }
+    tier.appendChild(ul);
+    const note = document.createElement("p");
+    note.className = "muted protect-tier-note";
+    note.textContent =
+      "Preview only -- this extension doesn't yet have permission to actually block requests, so nothing was sent or blocked on your behalf.";
+    tier.appendChild(note);
+    resultsSlot.appendChild(tier);
+  }
+
+  if (groups.flagAndLink.length) {
+    const tier = _buildProtectResultTier("🔗 Opt-out available", "protect-tier--link", String(groups.flagAndLink.length));
+    const ul = document.createElement("ul");
+    ul.className = "protect-tier-list";
+    for (const group of _uniqueOptOutLinks(groups.flagAndLink)) {
+      const li = document.createElement("li");
+      const names = group.entries.map((e) => _explainMatchedDomain(e).label).join(", ");
+      li.appendChild(document.createTextNode(`${names} -- `));
+      const link = document.createElement("a");
+      link.href = group.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.className = "protect-optout-link";
+      link.textContent = group.label;
+      li.appendChild(link);
+      ul.appendChild(li);
+    }
+    tier.appendChild(ul);
+    const note = document.createElement("p");
+    note.className = "muted protect-tier-note";
+    note.textContent = "Opens the company's own opt-out page in a new tab -- nothing is sent unless you act on that page yourself.";
+    tier.appendChild(note);
+    resultsSlot.appendChild(tier);
+  }
+
+  if (groups.flagAndExplain.length) {
+    const tier = _buildProtectResultTier("ℹ️ Couldn't be blocked", "protect-tier--explain", String(groups.flagAndExplain.length));
+    const ul = document.createElement("ul");
+    ul.className = "protect-tier-list";
+    for (const entry of groups.flagAndExplain) {
+      const { label } = _explainMatchedDomain(entry);
+      const li = document.createElement("li");
+      const strong = document.createElement("strong");
+      strong.textContent = label;
+      li.appendChild(strong);
+      li.appendChild(document.createTextNode(" -- " + entry.reason));
+      ul.appendChild(li);
+    }
+    tier.appendChild(ul);
+    resultsSlot.appendChild(tier);
+  }
+}
+
+// Builds the whole card: button + (once clicked) the tiered results below
+// it. Returns null when there's nothing to act on -- renderObservedResult
+// already gives a clean site its own positive empty state before this is
+// ever reached, so in practice this always has at least one tracker.
+function _buildProtectMeSection(matchedDomains) {
+  if (!matchedDomains || !matchedDomains.length) return null;
+  if (!window.TrackerRemediation) return null; // script not loaded -- fail quiet, not broken
+
+  const section = document.createElement("div");
+  section.className = "protect-section";
+
+  const intro = document.createElement("p");
+  intro.className = "protect-intro";
+  intro.textContent = "See what can actually be done about the trackers found on this site.";
+  section.appendChild(intro);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "protect-btn";
+  button.textContent = "🛡️ Protect me from this site";
+  section.appendChild(button);
+
+  const resultsSlot = document.createElement("div");
+  resultsSlot.className = "protect-results hidden";
+  section.appendChild(resultsSlot);
+
+  button.addEventListener("click", () => {
+    _renderProtectResults(resultsSlot, matchedDomains);
+    resultsSlot.classList.remove("hidden");
+    button.textContent = "🛡️ Re-check this site";
+  });
+
+  return section;
+}
+
 // ---------- Observed: Tracker Radar ----------
 // Takes the already-settled lookup result (see renderSiteResult). If
 // `glanceBadgeSlot` is given, also fills in the glance row's Observed
@@ -473,6 +620,13 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
     );
   }
   container.appendChild(summary);
+
+  // actionUI: bulk remediation action, above the per-category cards so
+  // it's visible without expanding anything -- design spec's placement
+  // ("using the established visual system... cards, severity badges,
+  // tabs"). Nothing here runs until the user clicks the button.
+  const protectSection = _buildProtectMeSection(matchedDomains);
+  if (protectSection) container.appendChild(protectSection);
 
   // One card per tracker category, collapsed by default -- design spec's
   // card layout. See _groupByCard/_buildTrackerCard above.
