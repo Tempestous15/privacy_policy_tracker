@@ -22,6 +22,11 @@
   --radius-pill: 999px;
   --shadow-sm: 0 1px 2px rgba(74, 55, 40, 0.06);
   --shadow-card: 0 1px 3px rgba(74, 55, 40, 0.08);
+  /* glossaryUI: the glossary tooltip floats above real content rather
+     than sitting in normal flow like a card -- one step more shadow than
+     --shadow-card helps it read as "hovering over," not just another
+     card in the stack. */
+  --shadow-popover: 0 4px 16px rgba(74, 55, 40, 0.22);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -278,9 +283,78 @@ details.summary-section ul { margin: 0.3rem 0 0.3rem 1.35rem; padding: 0; }
 details.summary-section.red-flags summary { color: var(--danger); }
 .detail-teaser { font-size: 0.8rem; color: var(--text-muted); margin: 0.15rem 0 0.4rem 1.35rem; }
 
-.ai-summary-block { margin-top: var(--space-2); }
-.ai-summary-btn { margin-bottom: 0.3rem; }
-.ai-summary-btn:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+/* ---------- AI explainer (llmUI) ----------
+   Sits right after the at-a-glance badges -- the fast "just tell me
+   simply" entry point, not a buried afterthought between the two
+   detailed channels below (where it used to live). Given a card of its
+   own (rather than sitting bare in the flow) so it visually reads as the
+   one thing worth reading first. Findings render as short labelled rows
+   (What it does / Watch out for / Protect yourself / Bottom line)
+   instead of a dense paragraph -- see popup.js's parseAiSummary and
+   webllm/client-src.js's four-line prompt format. */
+.ai-explain-block {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.ai-explain-heading {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  margin: 0 0 0.2rem;
+}
+.ai-explain-sub { margin: 0 0 var(--space-2); }
+/* llmUI round 2: this used to also carry .link-btn (text-only, no
+   background) -- easy to miss entirely, per user feedback. It's a plain
+   <button> now (see popup.js), so it inherits the base filled-button
+   look; this just recolors it to --accent (lighter than the main
+   "Check this site" button's --brown-dark) so it doesn't compete with
+   that primary action while still clearly reading as clickable. */
+.ai-explain-btn {
+  background: var(--accent);
+  color: var(--surface);
+}
+.ai-explain-btn:hover { background: var(--accent-hover); }
+.ai-explain-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Native <progress> instead of the old raw "Loading model... 42%" text
+   spam -- one glance tells you it's working without reading anything. */
+.ai-progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin: 0.4rem 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.ai-progress::-webkit-progress-bar { background: var(--border); border-radius: var(--radius-pill); }
+.ai-progress::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-pill); }
+.ai-progress::-moz-progress-bar { background: var(--accent); border-radius: var(--radius-pill); }
+
+.ai-status { margin: 0.2rem 0; }
+
+.ai-finding-row {
+  font-size: 0.85rem;
+  margin: 0 0 0.35rem;
+  line-height: 1.35;
+}
+.ai-finding-row:last-child { margin-bottom: 0; }
+.ai-finding-row strong { color: var(--brown-dark); }
+
+/* llmUI round 2: "Protect yourself" is the one row a user can actually
+   act on, so it gets a small amount of visual weight to stand out from
+   the other three plain rows -- reuses the same green already meaning
+   "good/safe" via .risk-low, rather than introducing a new color. */
+.ai-finding-row-protect {
+  background: #dff0d8;
+  border-left: 3px solid #2f5c26;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.4rem 0.55rem;
+}
+.ai-finding-row-protect strong { color: #2f5c26; }
 
 /* ---------- Saved sites: compact rows, lazy-expand ----------
    Previously each saved site rendered its FULL result inline (banner +
@@ -367,20 +441,67 @@ details.summary-section.red-flags summary { color: var(--danger); }
 .empty-state .empty-icon { font-size: 1.6rem; margin-bottom: var(--space-2); }
 .empty-state p { margin: 0; font-size: 0.85rem; }
 
-/* --- Disclosed vs. Observed channels (siteBehaviorIntegration) ---
+/* --- Disclosed vs. Observed channels (observedUI) ---
    Two clearly separate channels, never a blended score -- see
-   risk_model.js and root README.md "Two-channel risk model". */
-.channel-heading {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-  margin: 0.9rem 0 0.4rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--border);
+   risk_model.js and root README.md "Two-channel risk model". Used to be
+   two stacked "channel-heading" sections (see git history); now two tabs
+   -- a smaller pill/segmented-control style (rather than reusing the
+   top-level .tabs underline look verbatim) so the hierarchy between the
+   popup's top-level "This Site"/"Saved" tabs and this per-site sub-tab
+   pair stays visually obvious. Built per render, not by id -- see
+   popup.js's buildChannelTabs. */
+.channel-tabs {
+  display: flex;
+  gap: 0.2rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.2rem;
+  margin: 0.9rem 0 0.6rem;
 }
-.channel-heading:first-of-type { margin-top: 0.3rem; padding-top: 0; border-top: none; }
+.channel-tab {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.channel-tab:hover { color: var(--brown-dark); }
+.channel-tab.active { background: var(--brown-dark); color: var(--surface); }
+
+/* Cross-tab disagreement signal (design spec) -- a small dot, not a
+   second banner; see popup.js's setObservedTabFlag/
+   renderChannelAgreementBanner for where the fuller explanation lives. */
+.channel-tab-flag {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.channel-tab.active .channel-tab-flag { background: #f8d7da; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.channel-panel { display: none; }
+.channel-panel.active { display: block; }
 
 .channel-disagreement-banner {
   background: #fcf3cf;
@@ -397,15 +518,211 @@ details.summary-section.red-flags summary { color: var(--danger); }
 }
 .channel-disagreement-banner p { margin: 0; }
 
-/* --- Observed-channel findings (siteBehaviorIntegration) --- */
-.observed-flagged {
-  background: #f8d7da;
-  border: 1px solid #e3a3a9;
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.7rem;
-  margin-bottom: var(--space-2);
-  font-size: 0.82rem;
+/* ---------- Inline glossary (Observed round 3) ----------
+   Jargon terms (fingerprinting, third-party domain, high-risk,
+   ad/tracking-related, infrastructure) get a native <abbr title> instead
+   of a permanent glossary block -- hover (or a screen reader announcing
+   the title) reveals a plain-language definition. Costs zero visible
+   space for anyone who already knows the term; one hover for anyone who
+   doesn't. The dotted underline is the only visual hint it's there. */
+abbr[title] {
+  text-decoration: none;
+  border-bottom: 1px dotted var(--border-strong);
+  cursor: help;
+  color: var(--brown-mid);
 }
-.observed-flagged strong { display: block; margin-bottom: 0.3rem; color: var(--brown-dark); }
-.observed-flagged ul { margin: 0.3rem 0 0 1rem; padding: 0; }
-.observed-flagged li { margin-bottom: 0.3rem; }
+
+/* ---------- Observed: top trackers + category cards (observedUI) ----------
+   Replaces round 4's chip row + single combined toggle. Round 4's actual
+   insight -- fewer decision points beats more always-visible text --
+   still holds and is kept: every card below starts collapsed, same as
+   the old combined toggle did. What changes is granularity: Advertising/
+   Analytics/Social get their own small cards instead of one merged
+   "ad & tracking" chip, per the design spec's "one card per tracker
+   category" requirement. See popup.js's _groupByCard/_buildTrackerCard. */
+.observed-top-trackers {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0.5rem;
+}
+
+.tracker-card-list-wrap { margin-top: 0.4rem; }
+.tracker-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.tracker-card:last-child { margin-bottom: 0; }
+.tracker-card--unknown { margin-top: 0.5rem; }
+.tracker-card--high { border-left-color: #a33322; }
+.tracker-card--medium { border-left-color: #7a5f0a; }
+.tracker-card--low { border-left-color: #2f5c26; }
+.tracker-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brown-dark);
+  cursor: pointer;
+  list-style: none;
+}
+.tracker-card-summary::-webkit-details-marker { display: none; }
+.tracker-card-summary::before {
+  content: "▸";
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+.tracker-card[open] .tracker-card-summary::before { transform: rotate(90deg); }
+.tracker-card-label { flex: 1; }
+.tracker-card-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.tracker-card-list { margin: 0.5rem 0 0 1.15rem; padding: 0; font-size: 0.8rem; }
+.tracker-card-list li { margin-bottom: 0.3rem; }
+.tracker-card-list li:last-child { margin-bottom: 0; }
+.tracker-card-note { font-size: 0.78rem; margin: 0.4rem 0 0; }
+
+/* Empty/good state (design spec) -- shown INSTEAD OF the card layout
+   when trackerCount is exactly 0 and there's nothing unmatched either;
+   see popup.js's renderObservedResult. Reuses the base .empty-state
+   layout (already used by the Saved tab's empty state) with a green-
+   tinted recolor so a clean result reads as a reward, not a blank/error
+   state. */
+.observed-good-state .empty-icon { color: #2f5c26; }
+.observed-good-state p { color: var(--text); font-weight: 600; }
+
+.observed-captured-note {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+
+/* ---------- Glossary: shared hover-term component (glossaryUI) ----------
+   Reusable replacement for the old per-instance native <abbr title>
+   pattern (dotted underline + browser tooltip -- see git history). One
+   term = one call to GlossaryTooltip.wrapTerm() in popup.js; content
+   lives in glossary.js, never hardcoded here or in a component. Used
+   consistently everywhere a jargon term appears, not just fingerprinting.
+
+   Trigger is a small "i" info-circle rather than the plain "?" used
+   before this round -- "?" reads ambiguously as help/error/unknown,
+   while a circled "i" is a more widely recognized "hover for info"
+   affordance. Sized for an easy hover target (padding + a negative
+   margin keep the hit area larger than the visual footprint) without
+   competing visually with the term text next to it. */
+.glossary-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.glossary-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: content-box;
+  width: 15px;
+  height: 15px;
+  padding: 3px;
+  margin: -3px 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--brown-mid);
+  color: var(--brown-mid);
+  font-size: 10px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+/* Hover/focus fills the circle solid -- a visible state change confirms
+   "this is interactive" before the (deliberately delayed) tooltip ever
+   appears, per the design spec's hover-affordance requirement. */
+.glossary-trigger:hover,
+.glossary-trigger:focus-visible {
+  background: var(--brown-mid);
+  border-color: var(--brown-mid);
+  color: var(--surface);
+  outline: none;
+}
+.glossary-trigger:focus-visible {
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--border-strong);
+}
+
+.glossary-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+  padding: 0.6rem 0.7rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.glossary-tooltip--visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.glossary-tooltip-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  left: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+.glossary-tooltip--below .glossary-tooltip-arrow { top: -6px; border-bottom: 6px solid var(--card); }
+.glossary-tooltip--above .glossary-tooltip-arrow { bottom: -6px; border-top: 6px solid var(--card); }
+
+.glossary-tooltip-term {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--brown-dark);
+  margin: 0 0 0.3rem;
+}
+.glossary-tooltip-short {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text);
+  margin: 0 0 0.45rem;
+}
+.glossary-tooltip-example {
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  margin: 0 0 0.45rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border-strong);
+}
+.glossary-tooltip-example strong { color: var(--brown-mid); font-weight: 700; }
+.glossary-tooltip-why {
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: var(--text);
+  margin: 0;
+}
+.glossary-tooltip-why strong { color: var(--brown-dark); font-weight: 700; }
