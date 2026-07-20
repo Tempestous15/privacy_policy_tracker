@@ -25,6 +25,14 @@
 // plain English (see webllm/client-src.js), not re-derive them, and it's
 // moved to right after the at-a-glance badges since that's the fastest
 // "just tell me simply" entry point into the popup.
+//
+// llmUI round 2 (user feedback: button didn't look clickable, and the
+// explanation itself was too vague to be useful): the button now uses
+// the standard filled-button look instead of the muted text-link style
+// (see addAiExplainBlock), and the model output gained a fourth line --
+// "Protect yourself" -- with a worked example in the prompt (see
+// webllm/client-src.js) steering the small model toward concrete,
+// specific advice instead of generic "be careful" text.
 
 const els = {
   currentTabHost: document.getElementById("current-tab-host"),
@@ -398,12 +406,13 @@ function buildFindingsContext(analysis, tosdrResult, observedResult) {
   return lines.length ? lines.join("\n") : null;
 }
 
-// Leniently pulls WHAT/CONCERNS/BOTTOM LINE lines out of the model's raw
-// reply. Small local models don't always follow formatting instructions
-// exactly, so this tolerates a leading "-"/"*"/number, extra asterisks
-// (markdown-style bold), and any-case labels -- and returns null if it
-// can't find a single labelled line, so the caller falls back to showing
-// the raw text (bounded) instead of three empty rows.
+// Leniently pulls WHAT/CONCERNS/PROTECT YOURSELF/BOTTOM LINE lines out of
+// the model's raw reply. Small local models don't always follow
+// formatting instructions exactly, so this tolerates a leading
+// "-"/"*"/number, extra asterisks (markdown-style bold), and any-case
+// labels -- and returns null if it can't find a single labelled line, so
+// the caller falls back to showing the raw text (bounded) instead of
+// empty rows.
 function parseAiSummary(raw) {
   if (!raw) return null;
   const grab = (label) => {
@@ -414,9 +423,10 @@ function parseAiSummary(raw) {
   };
   const what = grab("WHAT");
   const concerns = grab("CONCERNS?");
+  const protectYourself = grab("PROTECT\\s*YOURSELF");
   const bottomLine = grab("BOTTOM[\\s-]*LINE");
-  if (!what && !concerns && !bottomLine) return null;
-  return { what, concerns, bottomLine };
+  if (!what && !concerns && !protectYourself && !bottomLine) return null;
+  return { what, concerns, protectYourself, bottomLine };
 }
 
 function _capSentence(text, max) {
@@ -458,8 +468,13 @@ function addAiExplainBlock(parent, policyText, analysis, settledPromise) {
   sub.textContent = "A small AI model runs entirely on this device -- your policy text is never sent anywhere.";
   block.appendChild(sub);
 
+  // Deliberately NOT .link-btn -- this is the primary action in its own
+  // card, not a secondary text link, and it was easy to miss/mistake for
+  // plain text when styled that way (user feedback, llmUI round 2).
+  // Inherits the standard filled-button look (see popup.css's base
+  // `button` rule and .ai-explain-btn).
   const btn = document.createElement("button");
-  btn.className = "link-btn ai-explain-btn";
+  btn.className = "ai-explain-btn";
   btn.textContent = "Explain in plain English";
 
   const progress = document.createElement("progress");
@@ -494,15 +509,20 @@ function addAiExplainBlock(parent, policyText, analysis, settledPromise) {
 
       const parsed = parseAiSummary(raw);
       if (parsed) {
+        // llmUI round 2: added "Protect yourself" -- users asked not just
+        // "what's wrong" but "what do I do about it." Given its own
+        // slightly emphasized style (ai-finding-row-protect) since it's
+        // the actionable row, the one most worth a user's attention.
         const rows = [
-          ["What it does", parsed.what],
-          ["Watch out for", parsed.concerns],
-          ["Bottom line", parsed.bottomLine],
+          ["What it does", parsed.what, ""],
+          ["Watch out for", parsed.concerns, ""],
+          ["Protect yourself", parsed.protectYourself, "ai-finding-row-protect"],
+          ["Bottom line", parsed.bottomLine, ""],
         ];
-        for (const [label, text] of rows) {
+        for (const [label, text, extraClass] of rows) {
           if (!text) continue;
           const row = document.createElement("p");
-          row.className = "ai-finding-row";
+          row.className = extraClass ? `ai-finding-row ${extraClass}` : "ai-finding-row";
           const strong = document.createElement("strong");
           strong.textContent = `${label}: `;
           row.appendChild(strong);
