@@ -436,20 +436,67 @@ details.summary-section.red-flags summary { color: var(--danger); }
 .empty-state .empty-icon { font-size: 1.6rem; margin-bottom: var(--space-2); }
 .empty-state p { margin: 0; font-size: 0.85rem; }
 
-/* --- Disclosed vs. Observed channels (siteBehaviorIntegration) ---
+/* --- Disclosed vs. Observed channels (observedUI) ---
    Two clearly separate channels, never a blended score -- see
-   risk_model.js and root README.md "Two-channel risk model". */
-.channel-heading {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-  margin: 0.9rem 0 0.4rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--border);
+   risk_model.js and root README.md "Two-channel risk model". Used to be
+   two stacked "channel-heading" sections (see git history); now two tabs
+   -- a smaller pill/segmented-control style (rather than reusing the
+   top-level .tabs underline look verbatim) so the hierarchy between the
+   popup's top-level "This Site"/"Saved" tabs and this per-site sub-tab
+   pair stays visually obvious. Built per render, not by id -- see
+   popup.js's buildChannelTabs. */
+.channel-tabs {
+  display: flex;
+  gap: 0.2rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.2rem;
+  margin: 0.9rem 0 0.6rem;
 }
-.channel-heading:first-of-type { margin-top: 0.3rem; padding-top: 0; border-top: none; }
+.channel-tab {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.channel-tab:hover { color: var(--brown-dark); }
+.channel-tab.active { background: var(--brown-dark); color: var(--surface); }
+
+/* Cross-tab disagreement signal (design spec) -- a small dot, not a
+   second banner; see popup.js's setObservedTabFlag/
+   renderChannelAgreementBanner for where the fuller explanation lives. */
+.channel-tab-flag {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.channel-tab.active .channel-tab-flag { background: #f8d7da; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.channel-panel { display: none; }
+.channel-panel.active { display: block; }
 
 .channel-disagreement-banner {
   background: #fcf3cf;
@@ -480,53 +527,79 @@ abbr[title] {
   color: var(--brown-mid);
 }
 
-/* ---------- Observed: chip breakdown (round 4) ----------
-   Replaces three separate always-collapsed <details> (one per bucket)
-   with one row of colored pills -- the full categorical picture at a
-   glance, zero clicks required. Same red/amber/green language as the
-   risk badges above, so this reads as one consistent system rather than
-   a new one invented just for this row. This is the single biggest
-   change from round 3: fewer decision points (was up to three toggles to
-   consider opening, now the breakdown needs none), which is what was
-   actually causing people to glaze over -- not just text length. */
-.observed-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0.5rem 0 0.4rem;
+/* ---------- Observed: top trackers + category cards (observedUI) ----------
+   Replaces round 4's chip row + single combined toggle. Round 4's actual
+   insight -- fewer decision points beats more always-visible text --
+   still holds and is kept: every card below starts collapsed, same as
+   the old combined toggle did. What changes is granularity: Advertising/
+   Analytics/Social get their own small cards instead of one merged
+   "ad & tracking" chip, per the design spec's "one card per tracker
+   category" requirement. See popup.js's _groupByCard/_buildTrackerCard. */
+.observed-top-trackers {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0.5rem;
 }
-.observed-chip {
+
+.tracker-card-list-wrap { margin-top: 0.4rem; }
+.tracker-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.tracker-card:last-child { margin-bottom: 0; }
+.tracker-card--unknown { margin-top: 0.5rem; }
+.tracker-card--high { border-left-color: #a33322; }
+.tracker-card--medium { border-left-color: #7a5f0a; }
+.tracker-card--low { border-left-color: #2f5c26; }
+.tracker-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brown-dark);
+  cursor: pointer;
+  list-style: none;
+}
+.tracker-card-summary::-webkit-details-marker { display: none; }
+.tracker-card-summary::before {
+  content: "▸";
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+.tracker-card[open] .tracker-card-summary::before { transform: rotate(90deg); }
+.tracker-card-label { flex: 1; }
+.tracker-card-count {
   display: inline-flex;
   align-items: center;
-  font-size: 0.76rem;
-  font-weight: 700;
-  padding: 0.28rem 0.65rem;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.3rem;
   border-radius: var(--radius-pill);
-  line-height: 1.2;
-}
-.observed-chip--high { background: #f8d7da; color: #7a1f28; }
-.observed-chip--medium { background: #fcf3cf; color: #7a5f0a; }
-.observed-chip--low { background: #dff0d8; color: #2f5c26; }
-
-/* ---------- Observed: single detail toggle (round 4) ----------
-   Everything that used to be three-plus separate <details> (one per
-   bucket, plus unmatched domains) now lives inside ONE
-   "See which trackers were found" toggle, organized by mini-headers
-   (.observed-subgroup) instead of separate top-level collapsibles. One
-   decision to open, not several. */
-.observed-subgroup { margin: 0.5rem 0; }
-.observed-subgroup:first-of-type { margin-top: 0.3rem; }
-.observed-subgroup:last-of-type { margin-bottom: 0; }
-.observed-subgroup-heading {
-  font-size: 0.78rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
   font-weight: 700;
-  margin: 0 0 0.3rem;
-  color: var(--brown-dark);
+  color: var(--text-muted);
 }
-.observed-subgroup--high .observed-subgroup-heading { color: var(--danger); }
-.observed-subgroup ul { margin: 0 0 0 1.2rem; padding: 0; font-size: 0.8rem; }
-.observed-subgroup li { margin-bottom: 0.3rem; }
-.observed-subgroup li:last-child { margin-bottom: 0; }
+.tracker-card-list { margin: 0.5rem 0 0 1.15rem; padding: 0; font-size: 0.8rem; }
+.tracker-card-list li { margin-bottom: 0.3rem; }
+.tracker-card-list li:last-child { margin-bottom: 0; }
+.tracker-card-note { font-size: 0.78rem; margin: 0.4rem 0 0; }
+
+/* Empty/good state (design spec) -- shown INSTEAD OF the card layout
+   when trackerCount is exactly 0 and there's nothing unmatched either;
+   see popup.js's renderObservedResult. Reuses the base .empty-state
+   layout (already used by the Saved tab's empty state) with a green-
+   tinted recolor so a clean result reads as a reward, not a blank/error
+   state. */
+.observed-good-state .empty-icon { color: #2f5c26; }
+.observed-good-state p { color: var(--text); font-weight: 600; }
 
 .observed-captured-note {
   margin-top: 0.6rem;

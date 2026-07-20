@@ -195,13 +195,11 @@ const TERM_GLOSSARY = {
   fingerprinting:
     "Identifying your device using small technical details (screen size, fonts, timezone, and similar) " +
     "instead of cookies -- harder to block or clear than a cookie.",
-  highRisk:
-    "Flagged by our tracker database for aggressive or opaque data-collection behavior -- a different meaning " +
-    "of \"risk\" than the Disclosed section above, which is about the policy text.",
-  adTracking: "Mainly used to target ads or measure ad performance based on what you do.",
-  infrastructure:
-    "Mostly technical plumbing (like loading images or scripts faster) -- not primarily built for tracking, " +
-    "though it can still see that you visited.",
+  // observedUI: highRisk/adTracking/infrastructure definitions (tied to
+  // the old "Concerning"/"Ad & tracking"/"Infrastructure" bucket
+  // headings) were removed along with those headings -- see
+  // _buildTrackerCard below, which reuses `fingerprinting` on the
+  // Fingerprinting & High-Risk card label instead.
 };
 
 // Wraps a jargon term in a native <abbr title> -- hover (or a screen
@@ -249,55 +247,126 @@ function _explainMatchedDomain(entry) {
   return { label, detail };
 }
 
-// Observed round 4 (user feedback after round 3: still not intuitive or
-// good-looking, still an overload people would glaze over). The real
-// problem wasn't text length anymore -- it was the NUMBER of separate
-// decision points. Three independent <details> toggles (one per bucket)
-// meant a user had to decide three separate times whether something was
-// worth opening, just to learn the shape of what was found. This round
-// replaces that with: one row of always-visible colored chips (the full
-// categorical breakdown, zero clicks), one named callout for the single
-// most-concerning tracker (if any), and exactly ONE "see details" toggle
-// for anyone who wants the full per-domain list. Same information, one
-// decision instead of three.
+// observedUI (design spec: "one card per tracker category, expandable to
+// reveal individual trackers"). Round 4 (see git history) replaced three
+// always-collapsed bucket toggles with one chip row + one combined
+// toggle -- fewer decision points, but it also meant Advertising,
+// Analytics, and Social all got flattened into a single "ad & tracking"
+// chip, which isn't granular enough for the category-card layout the
+// design spec asks for. This round keeps round 4's actual insight (don't
+// force more than one decision per group) but gives each category its
+// own small card -- collapsed by default, same as before, so "nothing
+// expanded" is still the resting state.
+//
+// Card categories are a display-only regrouping of the same matched-
+// domain data tracker_radar_score.js already computed (categories[],
+// fingerprinting) -- this does not change scoring/weights, just which
+// card a tracker is shown under. Priority mirrors classifyTracker()'s
+// fingerprinting-first rule, but keeps Advertising/Analytics/Social as
+// separate cards instead of one merged "ad_tracking" bucket. Keep this
+// in sync by hand with tracker_radar_score.js's category sets if those
+// ever change -- same manual-sync caveat that file already carries for
+// tracker_radar/config.py.
+const CARD_FORCE_FINGERPRINT_CATEGORIES = new Set([
+  "Session Replay", "Malware", "Unknown High Risk Behavior", "Obscure Ownership",
+]);
+const CARD_ADVERTISING_CATEGORIES = new Set(["Advertising", "Ad Motivated Tracking", "Ad Fraud"]);
+const CARD_ANALYTICS_CATEGORIES = new Set([
+  "Analytics", "Audience Measurement", "Third-Party Analytics Marketing", "Tag Manager", "Action Pixels",
+]);
+const CARD_SOCIAL_CATEGORIES = new Set([
+  "Social Network", "Social - Share", "Social - Comment", "Federated Login", "SSO",
+]);
 
-// A small colored pill showing a count + label -- e.g. "2 concerning".
-// Reuses the same red/amber/green palette as the risk badges elsewhere
-// in this popup (.risk-high/.risk-medium/.risk-low) so the whole popup
-// reads as one consistent color language rather than introducing a new
-// one just for this row.
-function _observedChip(count, label, severity) {
-  const chip = document.createElement("span");
-  chip.className = `observed-chip observed-chip--${severity}`;
-  chip.textContent = `${count} ${label}`;
-  return chip;
+// Card definitions in fixed high-to-low severity display order. Severity
+// reuses the same three-value scale (high/medium/low) as the risk badges
+// and old chips -- one consistent color language, not a new one just for
+// cards (see popup.css's .tracker-card--high/medium/low).
+const CARD_DEFS = {
+  fingerprinting: { label: "Fingerprinting & High-Risk", icon: "⚠️", severity: "high" },
+  advertising: { label: "Advertising", icon: "🎯", severity: "medium" },
+  analytics: { label: "Analytics", icon: "📊", severity: "medium" },
+  social: { label: "Social", icon: "👥", severity: "medium" },
+  infra: { label: "Infrastructure & Other", icon: "🔧", severity: "low" },
+};
+const CARD_ORDER = ["fingerprinting", "advertising", "analytics", "social", "infra"];
+
+function _cardKeyForEntry(entry) {
+  const categories = entry.categories || [];
+  if ((entry.fingerprinting || 0) >= 2 || categories.some((c) => CARD_FORCE_FINGERPRINT_CATEGORIES.has(c))) {
+    return "fingerprinting";
+  }
+  if (categories.some((c) => CARD_ADVERTISING_CATEGORIES.has(c))) return "advertising";
+  if (categories.some((c) => CARD_ANALYTICS_CATEGORIES.has(c))) return "analytics";
+  if (categories.some((c) => CARD_SOCIAL_CATEGORIES.has(c))) return "social";
+  return "infra";
 }
 
-// Appends one labelled sub-section (not its own <details> -- just a
-// heading + list) into an already-open parent, e.g. the single outer
-// "See which trackers were found" toggle. `headingParts` follows the
-// _appendMixed contract so jargon in the heading can carry a hover
-// definition.
-function _appendObservedSubgroup(parent, entries, headingParts, modifierClass) {
-  if (!entries.length) return;
-  const sub = document.createElement("div");
-  sub.className = modifierClass ? `observed-subgroup ${modifierClass}` : "observed-subgroup";
-  const heading = document.createElement("p");
-  heading.className = "observed-subgroup-heading";
-  _appendMixed(heading, [...headingParts, ` (${entries.length})`]);
-  sub.appendChild(heading);
+// Groups matched trackers into (at most 5) category cards, in the fixed
+// severity order above, omitting any category with nothing in it -- an
+// empty card would just be clutter with a "(0)" next to it.
+function _groupByCard(matchedDomains) {
+  const buckets = { fingerprinting: [], advertising: [], analytics: [], social: [], infra: [] };
+  for (const entry of matchedDomains) buckets[_cardKeyForEntry(entry)].push(entry);
+  return CARD_ORDER.map((key) => ({ key, def: CARD_DEFS[key], entries: buckets[key] })).filter(
+    (group) => group.entries.length
+  );
+}
+
+// One collapsed-by-default card per category -- "Advertising (4)" expands
+// to the individual trackers found within it (design spec's card
+// requirement). Native <details>/<summary>, same pattern as the saved-
+// site rows and the old single toggle this replaces.
+function _buildTrackerCard(group) {
+  const details = document.createElement("details");
+  details.className = `tracker-card tracker-card--${group.def.severity}`;
+
+  const summaryEl = document.createElement("summary");
+  summaryEl.className = "tracker-card-summary";
+  const label = document.createElement("span");
+  label.className = "tracker-card-label";
+  // The Fingerprinting & High-Risk card's label carries the same hover
+  // glossary definition the plain-English summary text uses for
+  // "third-party" -- one consistent hover-to-learn pattern, not a new
+  // one just for card labels.
+  if (group.key === "fingerprinting") {
+    _appendMixed(label, [`${group.def.icon} `, { text: "Fingerprinting", title: TERM_GLOSSARY.fingerprinting }, " & High-Risk"]);
+  } else {
+    label.textContent = `${group.def.icon} ${group.def.label}`;
+  }
+  const count = document.createElement("span");
+  count.className = "tracker-card-count";
+  count.textContent = String(group.entries.length);
+  summaryEl.appendChild(label);
+  summaryEl.appendChild(count);
+  details.appendChild(summaryEl);
+
   const ul = document.createElement("ul");
-  for (const entry of entries) {
-    const { label, detail } = _explainMatchedDomain(entry);
+  ul.className = "tracker-card-list";
+  for (const entry of group.entries) {
+    const { label: entryLabel, detail } = _explainMatchedDomain(entry);
     const li = document.createElement("li");
     const strong = document.createElement("strong");
-    strong.textContent = label;
+    strong.textContent = entryLabel;
     li.appendChild(strong);
     if (detail) li.appendChild(document.createTextNode(" -- " + detail));
     ul.appendChild(li);
   }
-  sub.appendChild(ul);
-  parent.appendChild(sub);
+  details.appendChild(ul);
+  return details;
+}
+
+// The "top few trackers" line shown directly under the Observed badge,
+// before any card is expanded (design spec's at-a-glance requirement).
+// Groups are already in severity order, so flattening them keeps the
+// most-notable trackers first.
+function _topTrackersLine(groups, max = 3) {
+  const flat = [];
+  for (const group of groups) for (const entry of group.entries) flat.push(entry);
+  if (!flat.length) return null;
+  const names = flat.slice(0, max).map((entry) => _explainMatchedDomain(entry).label);
+  const extra = flat.length - names.length;
+  return extra > 0 ? `${names.join(", ")}, +${extra} more` : names.join(", ");
 }
 
 // ---------- Observed: Tracker Radar ----------
@@ -326,13 +395,51 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
     return;
   }
 
+  // At-a-glance: severity badge first (color + icon + text label, never
+  // color alone -- riskBadge already does this). Design spec's
+  // accessibility note.
   const level = SiteRiskModel.observedLevelFromRiskScore(profile.riskScore);
   container.appendChild(riskBadge(level));
 
   const matchedDomains = profile.matchedDomains || [];
-  const flagged = matchedDomains.filter((d) => d.bucket === "fingerprinting_heavy");
-  const adTracking = matchedDomains.filter((d) => d.bucket === "ad_tracking");
-  const infra = matchedDomains.filter((d) => d.bucket === "cdn_functional" || d.bucket === "other");
+  const hasUnmatched = !!(profile.unmatchedDomains && profile.unmatchedDomains.length);
+  const isLive = typeof profile.snapshotSource === "string" && profile.snapshotSource.startsWith("live capture");
+  const capturedText = isLive
+    ? "Detected live from this tab's current page load."
+    : `Detected in a scan on ${profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan"}.`;
+
+  // observedUI (design spec's empty/good state): a genuinely clean result
+  // -- nothing matched, nothing outstanding to even ask "what's this?"
+  // about -- gets its own distinct, positively-framed state instead of
+  // the card layout rendering with zero cards in it. An empty card list
+  // would read like a broken/error state, not a good result; this reads
+  // as a reward instead. Deliberately a strict threshold (trackerCount
+  // === 0, not "very few") so it's predictable rather than fuzzy -- see
+  // branch summary for the reasoning.
+  if (profile.trackerCount === 0 && !hasUnmatched) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state observed-good-state";
+    empty.innerHTML =
+      '<div class="empty-icon" aria-hidden="true">✅</div><p>No trackers detected on this site.</p>';
+    container.appendChild(empty);
+    const capturedNote = document.createElement("p");
+    capturedNote.className = "muted observed-captured-note";
+    capturedNote.textContent = capturedText;
+    container.appendChild(capturedNote);
+    return;
+  }
+
+  const groups = _groupByCard(matchedDomains);
+
+  // Top few trackers, directly below the badge, visible with nothing
+  // expanded -- design spec's at-a-glance requirement.
+  const topLine = _topTrackersLine(groups);
+  if (topLine) {
+    const top = document.createElement("p");
+    top.className = "observed-top-trackers";
+    top.textContent = topLine;
+    container.appendChild(top);
+  }
 
   // Plain-English first: the sentence itself explains the concept ("other
   // companies' servers... in the background") without requiring anyone to
@@ -353,103 +460,52 @@ function renderObservedResult(container, observedSettled, glanceBadgeSlot) {
   }
   container.appendChild(summary);
 
-  // The full categorical breakdown, always visible, zero clicks required
-  // -- see the round-4 comment above _observedChip.
-  const chipRow = document.createElement("div");
-  chipRow.className = "observed-chip-row";
-  if (flagged.length) chipRow.appendChild(_observedChip(flagged.length, "concerning", "high"));
-  if (adTracking.length) chipRow.appendChild(_observedChip(adTracking.length, "ad & tracking", "medium"));
-  if (infra.length) chipRow.appendChild(_observedChip(infra.length, "other / infra", "low"));
-  if (chipRow.children.length) container.appendChild(chipRow);
-
-  // Names the single most-notable tracker without requiring the toggle
-  // below to be opened -- just the name, not the explanation (that's one
-  // click away), so this stays one short line.
-  if (flagged.length) {
-    const { label } = _explainMatchedDomain(flagged[0]);
-    const callout = document.createElement("p");
-    callout.className = "detail-teaser";
-    callout.textContent =
-      flagged.length === 1 ? `Most concerning: ${label}` : `Most concerning: ${label} (+${flagged.length - 1} more)`;
-    container.appendChild(callout);
+  // One card per tracker category, collapsed by default -- design spec's
+  // card layout. See _groupByCard/_buildTrackerCard above.
+  if (groups.length) {
+    const cardList = document.createElement("div");
+    cardList.className = "tracker-card-list-wrap";
+    for (const group of groups) cardList.appendChild(_buildTrackerCard(group));
+    container.appendChild(cardList);
   }
 
-  const hasDetail = matchedDomains.length > 0 || (profile.unmatchedDomains && profile.unmatchedDomains.length > 0);
-  const isLive = typeof profile.snapshotSource === "string" && profile.snapshotSource.startsWith("live capture");
-  const capturedText = isLive
-    ? "Detected live from this tab's current page load."
-    : `Detected in a scan on ${profile.capturedAt ? new Date(profile.capturedAt).toLocaleDateString() : "an earlier scan"}.`;
-
-  if (hasDetail) {
-    // One toggle for everything else -- individual trackers grouped under
-    // mini-headers, unmatched domains, and the capture-time caption, all
-    // inside the single "See which trackers were found" disclosure
-    // instead of three-plus separate top-level ones.
+  if (hasUnmatched) {
     const details = document.createElement("details");
-    details.className = "summary-section";
+    details.className = "tracker-card tracker-card--unknown";
     const summaryEl = document.createElement("summary");
-    summaryEl.textContent = "See which trackers were found";
+    summaryEl.className = "tracker-card-summary";
+    const label = document.createElement("span");
+    label.className = "tracker-card-label";
+    label.textContent = "❔ Not yet in our tracker index";
+    const count = document.createElement("span");
+    count.className = "tracker-card-count";
+    count.textContent = String(profile.unmatchedDomains.length);
+    summaryEl.appendChild(label);
+    summaryEl.appendChild(count);
     details.appendChild(summaryEl);
-
-    _appendObservedSubgroup(
-      details,
-      flagged,
-      ["⚠️ ", { text: "Concerning", title: TERM_GLOSSARY.highRisk }],
-      "observed-subgroup--high"
-    );
-    _appendObservedSubgroup(
-      details,
-      adTracking,
-      ["🎯 ", { text: "Ad & tracking", title: TERM_GLOSSARY.adTracking }],
-      "observed-subgroup--medium"
-    );
-    _appendObservedSubgroup(
-      details,
-      infra,
-      ["🔧 ", { text: "Other / infrastructure", title: TERM_GLOSSARY.infrastructure }],
-      "observed-subgroup--low"
-    );
-
-    if (profile.unmatchedDomains && profile.unmatchedDomains.length) {
-      const sub = document.createElement("div");
-      sub.className = "observed-subgroup";
-      const heading = document.createElement("p");
-      heading.className = "observed-subgroup-heading";
-      heading.textContent = `❔ Not yet in our tracker index (${profile.unmatchedDomains.length})`;
-      sub.appendChild(heading);
-      if (profile.coverage && profile.coverage.riskScoreWithheld) {
-        const note = document.createElement("p");
-        note.className = "muted";
-        note.textContent =
-          "Not enough of what was contacted matched our tracker index to score confidently -- this list is " +
-          "everything real that was seen, even though we cannot yet say what most of it does.";
-        sub.appendChild(note);
-      }
-      const ul = document.createElement("ul");
-      for (const d of profile.unmatchedDomains) {
-        const li = document.createElement("li");
-        li.textContent = d;
-        ul.appendChild(li);
-      }
-      sub.appendChild(ul);
-      details.appendChild(sub);
+    if (profile.coverage && profile.coverage.riskScoreWithheld) {
+      const note = document.createElement("p");
+      note.className = "muted tracker-card-note";
+      note.textContent =
+        "Not enough of what was contacted matched our tracker index to score confidently -- this list is " +
+        "everything real that was seen, even though we cannot yet say what most of it does.";
+      details.appendChild(note);
     }
-
-    const capturedNote = document.createElement("p");
-    capturedNote.className = "muted observed-captured-note";
-    capturedNote.textContent = capturedText;
-    details.appendChild(capturedNote);
-
+    const ul = document.createElement("ul");
+    ul.className = "tracker-card-list";
+    for (const d of profile.unmatchedDomains) {
+      const li = document.createElement("li");
+      li.textContent = d;
+      ul.appendChild(li);
+    }
+    details.appendChild(ul);
     container.appendChild(details);
-  } else {
-    // Nothing to expand -- the capture-time caption still matters (it's
-    // the "how fresh is this" context), just not tucked inside a toggle
-    // that would otherwise be empty.
-    const capturedNote = document.createElement("p");
-    capturedNote.className = "muted observed-captured-note";
-    capturedNote.textContent = capturedText;
-    container.appendChild(capturedNote);
   }
+
+  const capturedNote = document.createElement("p");
+  capturedNote.className = "muted observed-captured-note";
+  capturedNote.textContent = capturedText;
+  container.appendChild(capturedNote);
 }
 
 // ---------- At-a-glance dual badge row ----------
@@ -489,21 +545,32 @@ function renderGlanceRow(container, classifierAnalysis) {
   return observedBadgeSlot;
 }
 
-// Cross-channel comparison banner -- now a pure render from already-
-// settled results (see renderSiteResult), not an independent fetch. It
-// used to call TosdrClient/TrackerRadarClient a second time for the same
-// domain the section below it was already fetching for; sharing one
-// Promise.allSettled result removes that duplication entirely.
-function renderChannelAgreementBanner(container, tosdrSettled, observedSettled) {
+// Cross-channel comparison -- a pure computation from already-settled
+// results (see renderSiteResult), not an independent fetch. It used to
+// call TosdrClient/TrackerRadarClient a second time for the same domain
+// the section below it was already fetching for; sharing one
+// Promise.allSettled result removes that duplication entirely. Split out
+// from rendering (below) because observedUI needs the same comparison in
+// two places: the banner inside the Observed tab, and the small flag on
+// the Observed tab button itself (see setObservedTabFlag) -- computing it
+// twice with two separate SiteRiskModel calls would be easy to let drift.
+function computeChannelDisagreement(tosdrSettled, observedSettled) {
   const tosdr = tosdrSettled.status === "fulfilled" ? tosdrSettled.value : null;
   const observed = observedSettled.status === "fulfilled" ? observedSettled.value : null;
-  if (!tosdr || !observed) return; // nothing to compare -- stay quiet
+  if (!tosdr || !observed) return null; // nothing to compare -- stay quiet
 
   const disclosedLevel = SiteRiskModel.disclosedLevelFromTosdrRating(tosdr.rating);
   const observedLevel = SiteRiskModel.observedLevelFromRiskScore(observed.riskScore);
   const comparison = SiteRiskModel.compareChannels(disclosedLevel, observedLevel);
-  if (!comparison.comparable || comparison.agree) return;
+  if (!comparison.comparable || comparison.agree) return null;
+  return comparison;
+}
 
+// Renders the full disagreement explanation inside the Observed tab
+// panel. Not shown at all when `comparison` is null (nothing to compare,
+// or the two channels roughly agree).
+function renderChannelAgreementBanner(container, comparison) {
+  if (!comparison) return;
   const banner = document.createElement("div");
   banner.className = "channel-disagreement-banner";
   const title = document.createElement("strong");
@@ -513,6 +580,81 @@ function renderChannelAgreementBanner(container, tosdrSettled, observedSettled) 
   banner.appendChild(title);
   banner.appendChild(note);
   container.appendChild(banner);
+}
+
+// observedUI (design spec's cross-tab disagreement signal): a small dot
+// on the Observed tab button is what lets a user notice a disagreement
+// while still looking at the Disclosed tab, without switching. Kept
+// deliberately subtle -- a dot plus a native title tooltip plus one
+// screen-reader-only word, not a second loud banner competing with the
+// fuller one already rendered inside the Observed tab (see
+// renderChannelAgreementBanner just above). Hidden entirely when there's
+// nothing to flag, never left visible-but-empty.
+function setObservedTabFlag(flagDot, comparison) {
+  flagDot.classList.toggle("hidden", !comparison);
+}
+
+// observedUI: Disclosed and Observed are now two tabs within the popup
+// instead of two stacked "channel-heading" sections (see popup.html's
+// header comment and renderSiteResult below) -- built fresh per call,
+// not a singleton queried by id like the top-level "This Site"/"Saved"
+// tabs (initTabs), because more than one of these can exist on screen at
+// once: the current site's check result, plus any expanded Saved rows.
+// Each instance's tab state lives in its own closure instead of a shared
+// element.
+function buildChannelTabs(container) {
+  const nav = document.createElement("div");
+  nav.className = "channel-tabs";
+  nav.setAttribute("role", "tablist");
+
+  const disclosedBtn = document.createElement("button");
+  disclosedBtn.type = "button";
+  disclosedBtn.className = "channel-tab active";
+  disclosedBtn.setAttribute("role", "tab");
+  disclosedBtn.setAttribute("aria-selected", "true");
+  disclosedBtn.textContent = "Disclosed";
+
+  const observedBtn = document.createElement("button");
+  observedBtn.type = "button";
+  observedBtn.className = "channel-tab";
+  observedBtn.setAttribute("role", "tab");
+  observedBtn.setAttribute("aria-selected", "false");
+  observedBtn.appendChild(document.createTextNode("Observed"));
+  const flagDot = document.createElement("span");
+  flagDot.className = "channel-tab-flag hidden";
+  flagDot.title = "Disclosed and observed signals disagree";
+  const flagDotSrText = document.createElement("span");
+  flagDotSrText.className = "sr-only";
+  flagDotSrText.textContent = " (signals disagree)";
+  flagDot.appendChild(flagDotSrText);
+  observedBtn.appendChild(flagDot);
+
+  nav.appendChild(disclosedBtn);
+  nav.appendChild(observedBtn);
+
+  const disclosedPanel = document.createElement("div");
+  disclosedPanel.className = "channel-panel active";
+  disclosedPanel.setAttribute("role", "tabpanel");
+
+  const observedPanel = document.createElement("div");
+  observedPanel.className = "channel-panel";
+  observedPanel.setAttribute("role", "tabpanel");
+
+  function activate(btn, panel) {
+    for (const [b, p] of [[disclosedBtn, disclosedPanel], [observedBtn, observedPanel]]) {
+      b.classList.toggle("active", b === btn);
+      b.setAttribute("aria-selected", b === btn ? "true" : "false");
+      p.classList.toggle("active", p === panel);
+    }
+  }
+  disclosedBtn.addEventListener("click", () => activate(disclosedBtn, disclosedPanel));
+  observedBtn.addEventListener("click", () => activate(observedBtn, observedPanel));
+
+  container.appendChild(nav);
+  container.appendChild(disclosedPanel);
+  container.appendChild(observedPanel);
+
+  return { disclosedPanel, observedPanel, observedTabBtn: observedBtn, flagDot };
 }
 
 // ---------- AI explainer: findings context builder ----------
@@ -745,12 +887,13 @@ function addAiExplainBlock(parent, policyText, analysis, settledPromise) {
 //
 // Layout: glance row first (instant classifier badge, Observed badge
 // fills in once the shared lookup resolves), then the AI explainer (llmUI
-// -- the fast "just tell me simply" entry point), then an (usually empty)
-// agreement banner, then two clearly separate channels -- "Disclosed"
-// (classifier + ToS;DR, both readings of the policy text) and "Observed"
-// (Tracker Radar, independent of the policy) -- never merged into one
-// badge/score. See risk_model.js and root README.md "Two-channel risk
-// model".
+// -- the fast "just tell me simply" entry point), then Disclosed and
+// Observed as two tabs (observedUI -- see popup.html's header comment)
+// instead of two stacked sections -- "Disclosed" (classifier + ToS;DR,
+// both readings of the policy text) and "Observed" (Tracker Radar,
+// independent of the policy) are still never merged into one badge/score,
+// just no longer forced onto the same scroll. See risk_model.js and root
+// README.md "Two-channel risk model".
 //
 // extUI/llmUI: ToS;DR and Tracker Radar are each fetched exactly once
 // here via Promise.allSettled, and the settled results are threaded
@@ -767,7 +910,7 @@ async function renderSiteResult(container, site) {
   const glanceObservedSlot = renderGlanceRow(container, classifierAnalysis);
 
   // Not awaited here -- kicked off once, shared by the AI explainer below
-  // and by the Disclosed/Observed sections further down.
+  // and by the Disclosed/Observed tabs further down.
   const settledPromise = Promise.allSettled([
     TosdrClient.lookupDomain(site.domain),
     TrackerRadarClient.lookupDomain(site.domain, site.tabId),
@@ -775,8 +918,7 @@ async function renderSiteResult(container, site) {
 
   addAiExplainBlock(container, site.text, classifierAnalysis, settledPromise);
 
-  const bannerContainer = document.createElement("div");
-  container.appendChild(bannerContainer);
+  const { disclosedPanel, observedPanel, flagDot } = buildChannelTabs(container);
 
   if (site.policyUrl) {
     const link = document.createElement("p");
@@ -786,34 +928,33 @@ async function renderSiteResult(container, site) {
     a.target = "_blank";
     a.textContent = "View policy source";
     link.appendChild(a);
-    container.appendChild(link);
+    disclosedPanel.appendChild(link);
   }
-
-  const disclosedHeading = document.createElement("h3");
-  disclosedHeading.className = "channel-heading";
-  disclosedHeading.textContent = "Disclosed -- what the policy says";
-  container.appendChild(disclosedHeading);
 
   const classifierContainer = document.createElement("div");
   renderClassifierResult(classifierContainer, classifierAnalysis);
-  container.appendChild(classifierContainer);
+  disclosedPanel.appendChild(classifierContainer);
 
   const tosdrContainer = document.createElement("div");
   tosdrContainer.innerHTML = '<p class="muted">Checking ToS;DR…</p>';
-  container.appendChild(tosdrContainer);
+  disclosedPanel.appendChild(tosdrContainer);
 
-  const observedHeading = document.createElement("h3");
-  observedHeading.className = "channel-heading";
-  observedHeading.textContent = "Observed -- what we can technically detect";
-  container.appendChild(observedHeading);
+  // The (usually absent) disagreement banner lives inside the Observed
+  // tab now, not above both tabs -- the small flag on the Observed tab
+  // button (see setObservedTabFlag) is what surfaces it while someone is
+  // still looking at Disclosed.
+  const bannerSlot = document.createElement("div");
+  observedPanel.appendChild(bannerSlot);
 
   const observedContainer = document.createElement("div");
   observedContainer.innerHTML = '<p class="muted">Checking Tracker Radar…</p>';
-  container.appendChild(observedContainer);
+  observedPanel.appendChild(observedContainer);
 
   const [tosdrSettled, observedSettled] = await settledPromise;
 
-  renderChannelAgreementBanner(bannerContainer, tosdrSettled, observedSettled);
+  const comparison = computeChannelDisagreement(tosdrSettled, observedSettled);
+  renderChannelAgreementBanner(bannerSlot, comparison);
+  setObservedTabFlag(flagDot, comparison);
   renderTosdrResult(tosdrContainer, tosdrSettled);
   renderObservedResult(observedContainer, observedSettled, glanceObservedSlot);
 }
