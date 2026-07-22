@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scan History — ClipPri</title>
+    <title>Settings — ClipPri</title>
     <link rel="icon" type="image/png" href="assets/favicon-32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="assets/favicon-48.png" sizes="48x48">
     <link rel="apple-touch-icon" href="assets/favicon-180.png">
@@ -26,25 +26,38 @@
     <main>
         <div class="container">
             <div class="tool-page">
-                <h2>Scan History</h2>
+                <h2>Settings</h2>
                 <p class="tool-intro">
-                    Sites you've checked with the ClipPri extension, pulled directly from the extension's
-                    own local storage on this device.
+                    Choose what the extension's "Protect me from this site" action recommends blocking.
+                    This only narrows what gets <em>recommended</em> — nothing is ever blocked, and no
+                    cookie is ever cleared, without its own explicit confirmation in the extension itself.
                 </p>
 
                 <div class="on-device-note">
                     <span class="icon" aria-hidden="true">🔒</span>
                     <p>
                         <strong>This page never leaves your device.</strong> If the ClipPri extension is
-                        installed, this page asks it — directly, browser-to-extension, on this machine only
-                        — for the list of sites you've saved. Nothing is sent to any server, including ours;
-                        we don't have one. See <a href="privacy.html">Privacy Policy</a> for the exact
+                        installed, this page reads and writes its settings directly, browser-to-extension,
+                        on this machine only — the same on-device mechanism as
+                        <a href="history.html">Scan History</a>. Nothing is sent to any server, including
+                        ours; we don't have one. See <a href="privacy.html">Privacy Policy</a> for the exact
                         mechanism.
                     </p>
                 </div>
 
                 <div id="status" class="status-line">Checking for the ClipPri extension…</div>
-                <div id="history-list"></div>
+
+                <div id="settings-form" class="settings-form hidden">
+                    <fieldset class="concern-profile-fieldset">
+                        <legend>Concern profile</legend>
+                        <div id="profile-options"></div>
+                    </fieldset>
+
+                    <details class="advanced-toggles">
+                        <summary>Advanced: per-category toggles</summary>
+                        <div id="advanced-options"></div>
+                    </details>
+                </div>
             </div>
         </div>
     </main>
@@ -56,8 +69,8 @@
             ClipPri
         </div>
     </footer>
-    <script src="assets/redflags-engine.js"></script>
+    <script src="assets/concern_profiles_data.js"></script>
     <script src="assets/extension-bridge.js"></script>
-    <script src="assets/history.js"></script>
+    <script src="assets/settings.js"></script>
 </body>
 </html>

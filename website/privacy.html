@@ -17,6 +17,7 @@
                 <a href="index.html">Home</a>
                 <a href="check.html">Check a URL</a>
                 <a href="history.html">Scan History</a>
+                <a href="settings.html">Settings</a>
                 <a href="mission.html">Mission</a>
                 <a href="privacy.html">Privacy</a>
             </nav>
@@ -90,6 +91,16 @@
                         server, including ours. The extension only accepts this message from this
                         website's own address (configured in the extension's <code>manifest.json</code>) --
                         no other website can ask it for this.
+                    </li>
+                    <li>
+                        <strong><a href="settings.html">Settings</a></strong> reads and writes the
+                        extension's concern-profile preferences (which tracker categories "Protect me from
+                        this site" recommends blocking) using the same <code>externally_connectable</code>
+                        channel as Scan History above -- same same-device, same-browser, no-network-request
+                        mechanism, just read/write instead of read-only. Changing a setting here only
+                        changes what a future recommendation includes; it never blocks anything or clears
+                        any cookie by itself -- every actual action still requires its own explicit
+                        confirmation in the extension.
                     </li>
                     <li>
                         <strong><a href="check.html">Check a URL</a></strong> makes a direct request from

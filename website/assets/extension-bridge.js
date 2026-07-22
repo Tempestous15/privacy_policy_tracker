@@ -1,67 +1,103 @@
-// Shared helper for talking to the ClipPri browser extension via Chrome's
-// externally_connectable messaging (see extension/website_bridge_background.js
-// and extension/manifest.json). Same-device, same-browser messaging only --
-// this never makes a network request. Used by history.js today; check.js
-// (Feature 2) doesn't need it, since checking an arbitrary URL works
-// without the extension installed at all.
+// Website-side half of the extension<->website bridge (see
+// extension/website_bridge_background.js for the extension-side listener
+// and the same header comment's explanation of why this is a same-device,
+// in-browser message channel and not a network request).
 //
-// EXTENSION_ID must match extension/manifest.json's pinned "key" field
-// (see websiteImprovement summary doc for how that key was generated).
-// Chrome computes the ID deterministically from that key, so it's stable
-// across installs/reloads -- but if the extension is ever repackaged with a
-// different key (or published to the Chrome Web Store under a new key),
-// this constant has to be updated to match, or every message here will
-// silently fail (chrome.runtime.sendMessage to a nonexistent ID just
-// resolves as "no such extension", it doesn't throw a helpful error).
-const CLIPPRI_EXTENSION_ID = "oekejhnandbljcfcemgbjmbmbpjgchha";
+// extUI4: originally read-only (requestSavedSitesFromExtension, used by
+// history.html). Now also exposes write functions for settings.html, since
+// concern-profile customization moved off the popup and onto this website.
+// requestSavedSitesFromExtension itself is left exactly as it was --
+// deliberately not rewritten to call the new _sendToExtension helper below
+// -- so its existing call sites/behavior don't change; the helper is only
+// used by the new functions added for extUI4.
 
-// Whether this browser exposes chrome.runtime.sendMessage to page JS at
-// all (Chrome/Chromium only -- Firefox doesn't support externally_connectable
-// the same way, and Safari doesn't support it either). Callers should check
-// this before attempting a message and show a clear "not supported in this
-// browser" state rather than a confusing silent failure.
-function isExtensionMessagingSupported() {
-  return typeof chrome !== "undefined" && !!chrome.runtime && !!chrome.runtime.sendMessage;
-}
+const CLIPPRI_EXTENSION_ID_PLACEHOLDER = null; // reserved, unused: sendMessage's extensionId
+// arg is omitted below so Chrome infers the right extension automatically
+// from which one has this origin in its externally_connectable list --
+// see the same pattern in the original requestSavedSitesFromExtension.
 
-// Resolves to { ok: true, sites: [...] } on success, or { ok: false,
-// reason } on any failure -- including "extension not installed," which
-// looks the same from the page's side as "extension installed but
-// rejected the message" (Chrome gives no way to distinguish "no such
-// extension" from "extension didn't answer"). Never throws.
 function requestSavedSitesFromExtension(timeoutMs = 4000) {
   return new Promise((resolve) => {
-    if (!isExtensionMessagingSupported()) {
-      resolve({ ok: false, reason: "unsupported-browser" });
+    if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+      resolve({ ok: false, error: "not-installed-or-restricted-browser" });
       return;
     }
-
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      resolve({ ok: false, reason: "no-response" });
+      resolve({ ok: false, error: "timeout" });
     }, timeoutMs);
-
     try {
-      chrome.runtime.sendMessage(CLIPPRI_EXTENSION_ID, { type: "getSavedSites" }, (response) => {
+      chrome.runtime.sendMessage({ type: "getSavedSites" }, (response) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        if (chrome.runtime.lastError || !response || response.ok !== true) {
-          resolve({ ok: false, reason: "not-installed-or-rejected" });
+        if (chrome.runtime.lastError || !response) {
+          resolve({ ok: false, error: "not-installed-or-restricted-browser" });
           return;
         }
-        resolve({ ok: true, sites: response.sites || [] });
+        resolve(response);
       });
-    } catch {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve({ ok: false, reason: "not-installed-or-rejected" });
-      }
+    } catch (err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ ok: false, error: String((err && err.message) || err) });
     }
   });
 }
 
-window.ClipPriBridge = { isExtensionMessagingSupported, requestSavedSitesFromExtension, CLIPPRI_EXTENSION_ID };
+// Generic helper for the new extUI4 message types, added instead of
+// modifying requestSavedSitesFromExtension above (see header comment).
+// Same never-throws, always-resolves-with-{ok,...} contract.
+function _sendToExtension(message, timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+      resolve({ ok: false, error: "not-installed-or-restricted-browser" });
+      return;
+    }
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok: false, error: "timeout" });
+    }, timeoutMs);
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (chrome.runtime.lastError || !response) {
+          resolve({ ok: false, error: "not-installed-or-restricted-browser" });
+          return;
+        }
+        resolve(response);
+      });
+    } catch (err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ ok: false, error: String((err && err.message) || err) });
+    }
+  });
+}
+
+function requestConcernProfileStateFromExtension(timeoutMs = 4000) {
+  return _sendToExtension({ type: "getConcernProfileState" }, timeoutMs);
+}
+
+function setActiveConcernProfile(profileId, timeoutMs = 4000) {
+  return _sendToExtension({ type: "setConcernProfile", profileId }, timeoutMs);
+}
+
+function setConcernCategoryOverride(category, value, timeoutMs = 4000) {
+  return _sendToExtension({ type: "setCategoryOverride", category, value }, timeoutMs);
+}
+
+window.ClipPriBridge = {
+  requestSavedSitesFromExtension,
+  requestConcernProfileStateFromExtension,
+  setActiveConcernProfile,
+  setConcernCategoryOverride,
+};
