@@ -696,11 +696,39 @@ details.summary-section ul { margin: var(--space-2) 0 var(--space-2) 1.35rem; pa
   color: var(--text-muted);
   margin: 0 0 var(--space-3);
 }
+/* extUI4: condensed to a <details>/<summary> so the whole explanation +
+   confirm/decline flow is collapsed behind one line by default (user
+   report: too much vertical space, too much shown at once). The summary
+   needs to actually look like the primary button it functions as, so
+   every button-like property is spelled out directly here instead of
+   relying on the bare `button{}` cascade a real <button> would get --
+   this class is applied to a <summary>, not a <button>. */
 .protect-btn {
+  display: block;
   width: 100%;
+  padding: var(--space-4) var(--space-4);
+  background: var(--brown-dark);
+  color: var(--surface);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  text-align: center;
+  cursor: pointer;
+  list-style: none;
+  transition: background 0.15s;
+}
+.protect-btn::-webkit-details-marker { display: none; }
+.protect-btn:hover { background: var(--accent-hover); }
+
+.protect-body { margin-top: var(--space-4); }
+.protect-results { margin-top: 0; }
+
+.protect-settings-link {
+  display: inline-block;
+  margin-bottom: var(--space-4);
   font-size: var(--text-sm);
 }
-.protect-results { margin-top: var(--space-4); }
 .protect-summary {
   font-size: var(--text-base);
   font-weight: 600;
@@ -718,7 +746,36 @@ details.summary-section ul { margin: var(--space-2) 0 var(--space-2) 1.35rem; pa
 .protect-tier--autofix .protect-tier-header { color: var(--severity-low-fg); }
 .protect-tier--link .protect-tier-header { color: var(--accent-hover); }
 .protect-tier--explain .protect-tier-header { color: var(--text-muted); }
+/* extUI5 (user report round 2: opening "Protect me" still meant a wall
+   of text -- every tracker named individually, plus that same list of
+   names repeated a second time inside the recommend-card sentence). The
+   per-tier tracker-by-name list is now its own nested collapsed
+   <details>, tucked one level inside the outer Protect-me <details> --
+   same collapsed-by-default idiom as .category-card-summary above, just
+   scaled down since it's a secondary toggle nested inside an already-
+   opened section, not a first-level one. The actual action (the block-N
+   recommend card) is NOT inside this -- see _buildTierNamesToggle's
+   comment in popup.js for why only the supplementary name-by-name detail
+   moved behind the extra tap. */
+.protect-tier-names { margin-top: var(--space-2); }
+.protect-tier-names-summary {
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  list-style: none;
+}
+.protect-tier-names-summary:hover { color: var(--brown-dark); }
+.protect-tier-names-summary::-webkit-details-marker { display: none; }
+.protect-tier-names-summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: var(--space-2);
+  transition: transform 0.15s;
+}
+.protect-tier-names[open] .protect-tier-names-summary::before { transform: rotate(90deg); }
 .protect-tier-list { margin: 0 0 0 1.1rem; padding: 0; font-size: var(--text-sm); }
+.protect-tier-names .protect-tier-list { margin-top: var(--space-2); }
 .protect-tier-list li { margin-bottom: var(--space-2); }
 .protect-tier-list li:last-child { margin-bottom: 0; }
 .protect-tier-note { font-size: var(--text-xs); margin: var(--space-2) 0 0; }
@@ -753,44 +810,6 @@ details.summary-section ul { margin: var(--space-2) 0 var(--space-2) 1.35rem; pa
 .protect-unblock-btn:hover { background: var(--card-hover); }
 .protect-unblock-all-btn { margin-top: var(--space-2); }
 
-.protect-customize { margin-bottom: var(--space-3); font-size: var(--text-sm); }
-.protect-customize-summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--brown-dark);
-  list-style: none;
-}
-.protect-customize-summary::-webkit-details-marker { display: none; }
-.protect-customize-presets {
-  border: none;
-  margin: var(--space-3) 0 0;
-  padding: 0;
-}
-.protect-customize-presets legend {
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--text-muted);
-  padding: 0;
-  margin-bottom: var(--space-1);
-}
-.protect-preset-option, .protect-advanced-option {
-  display: block;
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-2);
-  cursor: pointer;
-}
-.protect-customize-advanced {
-  margin-top: var(--space-3);
-  font-size: var(--text-sm);
-}
-.protect-customize-advanced summary {
-  cursor: pointer;
-  color: var(--text-muted);
-  list-style: none;
-}
-.protect-customize-advanced summary::-webkit-details-marker { display: none; }
-.protect-customize-advanced > label { margin-top: var(--space-3); }
-
 .protect-recommend-card {
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -817,6 +836,14 @@ details.summary-section ul { margin: var(--space-2) 0 var(--space-2) 1.35rem; pa
   padding: var(--space-3) var(--space-4);
 }
 .protect-decline-btn {
+  /* width:auto is required here, not cosmetic: flex:0 0 auto has a
+     flex-basis of auto, so without an explicit width override this
+     silently inherits the global `button { width: 100% }` rule and that
+     becomes its flex-basis. Combined with flex-shrink:0, the button then
+     refuses to shrink from 100% of the row -- guaranteed overflow next to
+     .protect-confirm-btn regardless of either button's text length. This
+     was the popup's button-overflow bug. */
+  width: auto;
   flex: 0 0 auto;
   font-size: var(--text-sm);
   padding: var(--space-3) var(--space-4);

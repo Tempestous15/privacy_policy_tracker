@@ -573,78 +573,20 @@ async function _buildBlockedStatusLine(siteDomain, onChanged) {
   return wrap;
 }
 
-// Collapsible "customize what's recommended" picker -- concern-profile
-// presets plus advanced per-category toggles, backed by
-// concern_profiles.js/chrome.storage.local. Changing a setting here only
-// changes what the block recommendation includes next time it's shown; it
-// never blocks anything by itself (see concern_profiles.js's header
-// comment).
-async function _buildConcernProfilePicker(onChange) {
-  if (!window.ConcernProfiles || !window.TrackerRemediation) return null;
-  const state = await window.ConcernProfiles.getConcernProfileState();
-
-  const details = document.createElement("details");
-  details.className = "protect-customize";
-  const summary = document.createElement("summary");
-  summary.className = "protect-customize-summary";
-  summary.textContent = "⚙️ Customize what's recommended";
-  details.appendChild(summary);
-
-  const presetFieldset = document.createElement("fieldset");
-  presetFieldset.className = "protect-customize-presets";
-  const legend = document.createElement("legend");
-  legend.textContent = "Concern profile";
-  presetFieldset.appendChild(legend);
-
-  for (const [id, profile] of Object.entries(window.ConcernProfiles.PRESET_PROFILES)) {
-    const label = document.createElement("label");
-    label.className = "protect-preset-option";
-    const radio = document.createElement("input");
-    radio.type = "radio";
-    radio.name = "concern-profile";
-    radio.value = id;
-    radio.checked = state.activeProfile === id;
-    radio.addEventListener("change", async () => {
-      await window.ConcernProfiles.setActiveProfile(id);
-      if (onChange) onChange();
-    });
-    label.appendChild(radio);
-    const text = document.createElement("span");
-    text.textContent = ` ${profile.label} — ${profile.description}`;
-    label.appendChild(text);
-    presetFieldset.appendChild(label);
-  }
-  details.appendChild(presetFieldset);
-
-  const advanced = document.createElement("details");
-  advanced.className = "protect-customize-advanced";
-  const advancedSummary = document.createElement("summary");
-  advancedSummary.textContent = "Advanced: per-category toggles";
-  advanced.appendChild(advancedSummary);
-
-  for (const category of window.TrackerRemediation.AUTO_FIX_CATEGORIES) {
-    const alwaysOn = window.ConcernProfiles.ALWAYS_RECOMMENDED_CATEGORIES.has(category);
-    const recommended = window.ConcernProfiles.recommendedCategoriesForState(state);
-    const label = document.createElement("label");
-    label.className = "protect-advanced-option";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = alwaysOn || recommended.has(category);
-    checkbox.disabled = alwaysOn;
-    checkbox.addEventListener("change", async () => {
-      await window.ConcernProfiles.setCategoryOverride(category, checkbox.checked);
-      if (onChange) onChange();
-    });
-    label.appendChild(checkbox);
-    const text = document.createElement("span");
-    text.textContent = alwaysOn ? ` ${category} (always recommended)` : ` ${category}`;
-    label.appendChild(text);
-    advanced.appendChild(label);
-  }
-  details.appendChild(advanced);
-
-  return details;
-}
+// extUI4 (settings moved out of the popup): concern-profile customization
+// used to live here as an in-popup picker (presets + advanced per-category
+// toggles, rendered with _buildConcernProfilePicker). It's now edited on
+// ClipPri's own website (website/settings.html) instead -- see
+// CLIPPRI_WEBSITE_SETTINGS_URL and its link below. The extension still
+// reads and applies whatever's stored in concernProfileState exactly as
+// before (see _buildAutoFixActions' use of window.ConcernProfiles below);
+// only the in-popup editing UI was removed, not the underlying
+// read/apply logic. The website writes to the same chrome.storage.local
+// key via a new two-way message on the existing externally_connectable
+// bridge -- see website_bridge_background.js and
+// website/assets/settings.js.
+const CLIPPRI_WEBSITE_SETTINGS_URL =
+  "http://privacy-policy-tracker-website.s3-website-us-east-1.amazonaws.com/settings.html";
 
 // Auto-fix tier's "take action" block: currently-blocked trackers (with
 // per-domain/bulk unblock) plus a recommend-and-confirm card for anything
@@ -671,12 +613,17 @@ async function _buildAutoFixActions(autoFixEntries, siteDomain, onChanged) {
 
   if (notYetBlocked.length) {
     const domains = notYetBlocked.map((e) => e.domain);
-    const names = notYetBlocked.map((e) => _explainMatchedDomain(e).label).join(", ");
+    // extUI5: no longer spells out every tracker name here -- the names
+    // are already available one tap away in this tier's own "Show N
+    // trackers" list (see _buildTierNamesToggle in _renderProtectResults),
+    // so repeating them in this sentence too was pure duplication and a
+    // big chunk of the reported wall-of-text. The site-feature caveat
+    // stays -- that's a real warning, not a list of names.
     const card = _buildRecommendCard({
       icon: "🛡️",
       title: `Block ${domains.length} tracker${domains.length === 1 ? "" : "s"} on this site`,
       explanation:
-        `We recommend blocking ${domains.length} tracker${domains.length === 1 ? "" : "s"} detected on this site: ${names}. ` +
+        `We recommend blocking ${domains.length} tracker${domains.length === 1 ? "" : "s"} detected on this site. ` +
         "Blocking may occasionally affect site features that rely on these domains (like embedded logins or widgets).",
       confirmLabel: `Block ${domains.length} tracker${domains.length === 1 ? "" : "s"}`,
       onConfirm: async () => {
@@ -690,7 +637,7 @@ async function _buildAutoFixActions(autoFixEntries, siteDomain, onChanged) {
   if (excludedCount > 0) {
     const note = document.createElement("p");
     note.className = "muted protect-tier-note";
-    note.textContent = `${excludedCount} more auto-fixable tracker${excludedCount === 1 ? "" : "s"} not included by your current concern profile -- see Customize above.`;
+    note.textContent = `${excludedCount} more auto-fixable tracker${excludedCount === 1 ? "" : "s"} not included by your current concern profile -- see Manage settings above.`;
     wrap.appendChild(note);
   }
 
@@ -729,6 +676,31 @@ async function _buildCookieClearAction(matchedDomains, siteDomain, onChanged) {
   });
 }
 
+// extUI5 (still too much text/scroll on open, per user report round 2):
+// each tier's full tracker-by-name list is now tucked behind its own
+// "Show N trackers" toggle, nested one level inside the outer Protect-me
+// <details> -- same collapsed-by-default idiom as the category cards on
+// the Disclosed/Observed tabs, just applied one level deeper here.
+// Deliberately built so the actual ACTIONS never move further away:
+// the auto-fix tier's block-N-trackers recommend card is appended before
+// this toggle (see below), so blocking something is still reachable in
+// the same one tap as before -- only the supplementary "which trackers,
+// by name" detail moved behind the extra tap. The opt-out tier's list
+// doubles as its action (the links themselves live inside the <li>s), so
+// for that tier the extra tap is what reaches the actual opt-out links --
+// same number of taps it already takes to reach an individual tracker
+// inside a category card elsewhere in this popup, not a new pattern.
+function _buildTierNamesToggle(ul, count) {
+  const details = document.createElement("details");
+  details.className = "protect-tier-names";
+  const namesSummary = document.createElement("summary");
+  namesSummary.className = "protect-tier-names-summary";
+  namesSummary.textContent = `Show ${count} tracker${count === 1 ? "" : "s"}`;
+  details.appendChild(namesSummary);
+  details.appendChild(ul);
+  return details;
+}
+
 async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, onChanged) {
   const { items, groups } = window.TrackerRemediation.classifySite(matchedDomains);
   resultsSlot.innerHTML = "";
@@ -743,6 +715,9 @@ async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, on
 
   if (groups.autoFix.length) {
     const tier = _buildProtectResultTier("🛡️ Auto-fixable", "protect-tier--autofix", String(groups.autoFix.length));
+    // Action card first (visible with no extra tap) -- see comment on
+    // _buildTierNamesToggle above for why the name list comes after it.
+    tier.appendChild(await _buildAutoFixActions(groups.autoFix, siteDomain, onChanged));
     const ul = document.createElement("ul");
     ul.className = "protect-tier-list";
     for (const entry of groups.autoFix) {
@@ -751,13 +726,16 @@ async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, on
       li.textContent = label;
       ul.appendChild(li);
     }
-    tier.appendChild(ul);
-    tier.appendChild(await _buildAutoFixActions(groups.autoFix, siteDomain, onChanged));
+    tier.appendChild(_buildTierNamesToggle(ul, groups.autoFix.length));
     resultsSlot.appendChild(tier);
   }
 
   if (groups.flagAndLink.length) {
     const tier = _buildProtectResultTier("🔗 Opt-out available", "protect-tier--link", String(groups.flagAndLink.length));
+    const note = document.createElement("p");
+    note.className = "muted protect-tier-note";
+    note.textContent = "Opens the company's own opt-out page in a new tab -- nothing is sent unless you act on that page yourself.";
+    tier.appendChild(note);
     const ul = document.createElement("ul");
     ul.className = "protect-tier-list";
     for (const group of _uniqueOptOutLinks(groups.flagAndLink)) {
@@ -773,11 +751,7 @@ async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, on
       li.appendChild(link);
       ul.appendChild(li);
     }
-    tier.appendChild(ul);
-    const note = document.createElement("p");
-    note.className = "muted protect-tier-note";
-    note.textContent = "Opens the company's own opt-out page in a new tab -- nothing is sent unless you act on that page yourself.";
-    tier.appendChild(note);
+    tier.appendChild(_buildTierNamesToggle(ul, groups.flagAndLink.length));
     resultsSlot.appendChild(tier);
   }
 
@@ -794,7 +768,7 @@ async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, on
       li.appendChild(document.createTextNode(" -- " + entry.reason));
       ul.appendChild(li);
     }
-    tier.appendChild(ul);
+    tier.appendChild(_buildTierNamesToggle(ul, groups.flagAndExplain.length));
     resultsSlot.appendChild(tier);
   }
 
@@ -806,12 +780,17 @@ async function _renderProtectResults(resultsSlot, matchedDomains, siteDomain, on
   if (cookieCard) resultsSlot.appendChild(cookieCard);
 }
 
-// Builds the whole card: blocked-status line + customize picker (both
-// populate immediately, read-only/settings-only) plus the button +
-// (once clicked) the tiered results below it. Returns null when there's
-// nothing to act on -- renderObservedResult already gives a clean site its
-// own positive empty state before this is ever reached, so in practice
-// this always has at least one tracker.
+// Builds the whole card. Condensed by default (extUI4: too much vertical
+// space, per user report) down to a status line (only present if something
+// is already blocked) and a single <details> whose <summary> is the one
+// line/button a user sees before tapping anything -- "N actions
+// recommended", counting only the tiers with something to actually click
+// (auto-fix + opt-out link; flag-and-explain is informational only, see
+// below). Tapping it opens the same explanation/confirm-decline flow this
+// always had; nothing about that flow's behavior changed, only when it's
+// visible. Returns null when there's nothing to act on -- renderObservedResult
+// already gives a clean site its own positive empty state before this is
+// ever reached, so in practice this always has at least one tracker.
 function _buildProtectMeSection(matchedDomains, siteDomain) {
   if (!matchedDomains || !matchedDomains.length) return null;
   if (!window.TrackerRemediation) return null; // script not loaded -- fail quiet, not broken
@@ -822,23 +801,44 @@ function _buildProtectMeSection(matchedDomains, siteDomain) {
   const statusSlot = document.createElement("div");
   section.appendChild(statusSlot);
 
-  const customizeSlot = document.createElement("div");
-  section.appendChild(customizeSlot);
+  // extUI4: replaces the old in-popup "Customize what's recommended"
+  // picker. Settings are edited on the website now; the extension still
+  // silently reads and applies whatever's stored (see _buildAutoFixActions
+  // below) -- this is just a way out to edit it, not a settings display.
+  const settingsLink = document.createElement("a");
+  settingsLink.className = "protect-settings-link link-btn";
+  settingsLink.href = CLIPPRI_WEBSITE_SETTINGS_URL;
+  settingsLink.target = "_blank";
+  settingsLink.rel = "noopener noreferrer";
+  settingsLink.textContent = "Manage settings ↗";
+  section.appendChild(settingsLink);
 
+  // Synchronous pre-count for the collapsed label -- classifySite doesn't
+  // touch storage or chrome APIs, so this is available immediately, before
+  // the user has tapped anything (no flash of a wrong count).
+  const { groups: precount } = window.TrackerRemediation.classifySite(matchedDomains);
+  const actionCount = precount.autoFix.length + precount.flagAndLink.length;
+
+  const details = document.createElement("details");
+  details.className = "protect-details";
+  const summary = document.createElement("summary");
+  summary.className = "protect-btn";
+  summary.textContent = actionCount
+    ? `🛡️ ${actionCount} action${actionCount === 1 ? "" : "s"} recommended`
+    : "🛡️ Protect me from this site";
+  details.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "protect-body";
   const intro = document.createElement("p");
   intro.className = "protect-intro";
   intro.textContent = "See what can actually be done about the trackers found on this site.";
-  section.appendChild(intro);
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "protect-btn";
-  button.textContent = "🛡️ Protect me from this site";
-  section.appendChild(button);
-
+  body.appendChild(intro);
   const resultsSlot = document.createElement("div");
-  resultsSlot.className = "protect-results hidden";
-  section.appendChild(resultsSlot);
+  resultsSlot.className = "protect-results";
+  body.appendChild(resultsSlot);
+  details.appendChild(body);
+  section.appendChild(details);
 
   async function refreshResults() {
     await _renderProtectResults(resultsSlot, matchedDomains, siteDomain, onAnyChange);
@@ -851,32 +851,26 @@ function _buildProtectMeSection(matchedDomains, siteDomain) {
     });
   }
 
-  function refreshCustomize() {
-    _buildConcernProfilePicker(onAnyChange).then((el) => {
-      customizeSlot.innerHTML = "";
-      if (el) customizeSlot.appendChild(el);
-    });
-  }
-
   // Shared by every sub-action (unblock, block confirm, cookie-clear
-  // confirm, profile/advanced toggle change): refresh the read-only status
-  // line always, and refresh the tiered results only if they're currently
-  // visible -- no point re-computing a hidden section.
+  // confirm): refresh the read-only status line always, and refresh the
+  // tiered results only while they're actually visible -- no point
+  // re-computing a collapsed section.
   function onAnyChange() {
     refreshStatus();
-    if (!resultsSlot.classList.contains("hidden")) refreshResults();
+    if (details.open) refreshResults();
   }
 
   refreshStatus();
-  refreshCustomize();
 
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    button.textContent = "Checking…";
-    await refreshResults();
-    resultsSlot.classList.remove("hidden");
-    button.disabled = false;
-    button.textContent = "🛡️ Re-check this site";
+  // Native <details> toggling -- same expand/collapse idiom the rest of
+  // this popup already uses (category cards, saved items), so this reads
+  // as one more instance of a pattern already established, not a new
+  // control type. Re-fetches on every open (not just the first), so
+  // reopening after acting elsewhere (e.g. unblocking, or the page having
+  // reloaded) always shows current state, replacing the old button's
+  // manual "Checking…" / "Re-check this site" label dance.
+  details.addEventListener("toggle", () => {
+    if (details.open) refreshResults();
   });
 
   return section;

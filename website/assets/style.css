@@ -288,6 +288,45 @@ footer a:hover { color: var(--brown-dark); }
 }
 .status-line.error { color: #a33322; }
 
+/* settings.html -- concern-profile picker moved here from the extension
+   popup (extUI4). Same card/fieldset language as the rest of this page,
+   not a form styled like a generic web form. */
+.settings-form.hidden { display: none; }
+.concern-profile-fieldset {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem 1.5rem;
+    margin: 0 0 1.25rem;
+}
+.concern-profile-fieldset legend {
+    font-weight: 700;
+    color: var(--brown-dark);
+    padding: 0 0.4rem;
+}
+.settings-option {
+    display: block;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+}
+.settings-option:last-child { margin-bottom: 0; }
+.settings-option input { margin-right: 0.4rem; }
+.advanced-toggles {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.25rem 1.5rem;
+}
+.advanced-toggles summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--brown-dark);
+}
+.advanced-toggles summary:hover { color: var(--accent-hover); }
+.advanced-toggles #advanced-options { margin-top: 1rem; }
+
 .saved-item, .check-result-card {
     background: var(--card);
     border: 1px solid var(--border);
